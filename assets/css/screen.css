@@ -4,9 +4,9 @@
    ===================================================================== */
 
 @font-face {
-  font-family: "Archivo";
-  src: url(../fonts/archivo.woff2) format("woff2");
-  font-weight: 400 700;
+  font-family: "Timer";
+  src: url(../fonts/roboto-700.woff2) format("woff2");
+  font-weight: 700;
   font-display: block;
 }
 
@@ -20,7 +20,7 @@
   overflow: hidden;
   background: var(--bg);
   color: var(--fg);
-  font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Timer", Roboto, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   font-weight: 700;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -46,11 +46,10 @@
 .clock--stacked { flex-direction: column; gap: .06em; }
 .clock__row { display: flex; flex-direction: column; align-items: center; }
 .clock__g { display: flex; }
-.clock__d { display: block; width: .62em; text-align: center; }
-.clock__sep { display: block; width: .32em; text-align: center; transform: translateY(-.05em); }
+.clock__d { display: block; width: .58em; text-align: center; }
+.clock__sep { display: block; width: .3em; text-align: center; transform: translateY(-.05em); }
 .clock__unit {
   font-size: .13em;
-  font-weight: 600;
   line-height: 1.5;
   letter-spacing: .18em;
   text-transform: uppercase;

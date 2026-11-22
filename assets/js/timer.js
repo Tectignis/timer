@@ -3,8 +3,8 @@
   'use strict';
 
   // Sizes in em, matching assets/css/screen.css
-  var DIGIT = 0.62;   // .clock__d width
-  var SEP = 0.32;     // .clock__sep width
+  var DIGIT = 0.58;   // .clock__d width
+  var SEP = 0.3;      // .clock__sep width
   var LINE = 0.8;     // .clock line-height
   var UNIT = 0.195;   // .clock__unit height (font-size × line-height)
   var GAP = 0.06;     // .clock--stacked gap
