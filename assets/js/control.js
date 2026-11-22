@@ -16,7 +16,8 @@
   var screenEl = $('[data-cr-screen]');
 
   var data = JSON.parse(document.getElementById('cr-data').textContent);
-  var offset = data.now - Date.now() / 1000; // server clock minus ours
+  var serverClock = new C.Clock();
+  serverClock.addPage(data);
   var html = data.html;                       // what each region shows now
   var ratio = 16 / 9;
   var busy = 0;
@@ -26,13 +27,13 @@
 
   var STATUS = { ready: 'Ready', running: 'Running', paused: 'Paused', ended: 'Time’s up' };
 
-  function now() { return Date.now() / 1000 + offset; }
+  function now() { return serverClock.now(); }
 
   function isLive(s) { return s.status === 'running' && C.left(s, now()) > 0; }
 
-  // Local wall-clock time of a server timestamp
+  // A server timestamp as a time of day in the admin's own time zone
   function clock(ts) {
-    return new Date((ts - offset) * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   }
 
   // Swaps a region's HTML
@@ -100,13 +101,14 @@
 
   function poll() {
     clearTimeout(pollTimer);
-    var sent = Date.now();
+    var sent = C.mono();
+    var got = 0;
     var seen = actions;
     fetch(pollUrl + '&etag=' + encodeURIComponent(data.etag), { headers: { 'X-Requested-With': 'fetch' }, cache: 'no-store' })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { got = C.mono(); return r.json(); })
       .then(function (d) {
         if (d.signed_out) return signedOut(d.error);
-        offset = d.now - (sent + Date.now()) / 2000;
+        serverClock.add(sent, got, d);
         root.classList.remove('is-offline');
         if (!busy && seen === actions) apply(d);
       })
@@ -129,13 +131,14 @@
     busy++;
     actions++;
     if (button) button.classList.add('is-busy');
-    var sent = Date.now();
+    var sent = C.mono();
+    var got = 0;
     return fetch(location.pathname, { method: 'POST', headers: { 'X-Requested-With': 'fetch' }, body: body })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { got = C.mono(); return r.json(); })
       .then(function (d) {
         busy--;
         if (d.signed_out) return signedOut(d.error);
-        offset = d.now - (sent + Date.now()) / 2000;
+        serverClock.add(sent, got, d);
         apply(d);
         A.toast(d.toast, !d.ok);
         return d;
@@ -177,8 +180,8 @@
       new FormData(f).forEach(function (v, k) { body.append(k, v); });
       if (button && button.name) body.set(button.name, button.value);
       if (value === 'until' && f.elements.until.value) {
-        // the end time typed in the admin's own time zone, as a server timestamp
-        body.set('until_ts', String(new Date(f.elements.until.value).getTime() / 1000 + offset));
+        // the end time typed in the admin's own time zone, on the server clock (not this computer's, which may be off)
+        body.set('until_ts', String(new Date(f.elements.until.value).getTime() / 1000));
       }
       send(body, button).then(function (d) {
         if (d && d.ok && f.querySelector('[data-cr-message]')) {
@@ -203,7 +206,7 @@
   /* ---- "Ends at" starts one hour ahead (rounded up to a quarter hour) in the admin's own time zone */
   (function () {
     var input = $('[data-cr-until]').elements.until;
-    var d = new Date(Math.ceil((Date.now() + 3600000) / 900000) * 900000);
+    var d = new Date(Math.ceil((now() * 1000 + 3600000) / 900000) * 900000);
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
     input.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   })();

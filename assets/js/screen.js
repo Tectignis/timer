@@ -7,7 +7,8 @@
 
   var feed = el.getAttribute('data-feed');
   var data = JSON.parse(document.getElementById('screen-data').textContent);
-  var offset = data.now - Date.now() / 1000; // server clock minus ours
+  var clock = new C.Clock();
+  clock.addPage(data);
   var reloadAt = data.reload;
   var name = new URLSearchParams(location.search).get('name') || '';
   var screenId = (function () {
@@ -19,27 +20,26 @@
     return id;
   })();
 
-  function now() { return Date.now() / 1000 + offset; }
-
   function draw() {
     document.body.style.background = data.bg;
-    C.render(el, data, now());
+    C.render(el, data, clock.now());
   }
 
   // Checks in every 2 seconds: reports this screen and picks up any change from the control room
   function poll() {
-    var sent = Date.now();
+    var sent = C.mono();
+    var got = 0;
     var params = '&state=1&screen=' + screenId + '&etag=' + (data.etag || '') +
       '&size=' + window.innerWidth + 'x' + window.innerHeight + (name ? '&name=' + encodeURIComponent(name) : '');
     fetch(feed + params, { cache: 'no-store' })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { got = C.mono(); return r.json(); })
       .then(function (d) {
         if (d.error) { // the link was replaced: go blank
           data.view = 'standby';
           data.etag = '';
           return draw();
         }
-        offset = d.now - (sent + Date.now()) / 2000;
+        clock.add(sent, got, d);
         if (d.same) return;
         if (d.reload !== reloadAt) return location.reload();
         data = d;

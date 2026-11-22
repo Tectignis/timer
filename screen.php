@@ -19,13 +19,10 @@ if (isset($_GET['state'])) {
         screen_heartbeat($screen, $_GET['name'] ?? '', $_GET['size'] ?? '');
     }
     $data = timer_screen_payload();
-    if (($_GET['etag'] ?? '') === $data['etag']) {
-        json_out(['same' => true, 'now' => $data['now']]);
-    }
-    json_out($data);
+    json_out((($_GET['etag'] ?? '') === $data['etag'] ? ['same' => true] : $data) + timer_clock());
 }
 
-$data = timer_screen_payload();
+$data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
 ?>
 <!doctype html>
 <html lang="en">

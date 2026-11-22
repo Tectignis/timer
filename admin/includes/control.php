@@ -51,5 +51,5 @@ function cr_payload()
         'size'   => $online[0]['size'] ?? ($list[0]['size'] ?? ''), // aspect ratio for the preview
         'html'   => ['screens' => cr_screens_html($list), 'recent' => cr_recent_html($state)],
     ];
-    return ['etag' => md5(json_encode($data))] + $data + ['now' => timer_now()];
+    return ['etag' => md5(json_encode($data))] + $data;
 }

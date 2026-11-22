@@ -1,6 +1,65 @@
-// Countdown maths and drawing, shared by the screen (screen.php) and the control room preview.
+// Countdown maths, drawing and the server clock, shared by the screen (screen.php) and the control room.
 (function () {
   'use strict';
+
+  /* ---- the server clock */
+
+  var DRIFT = 0.0001; // how fast two computer clocks can drift apart (s per s), so older measurements count for less
+
+  // Our own clock in seconds. It keeps going steadily even when someone changes the computer's time.
+  function mono() { return performance.now() / 1000; }
+
+  // The server's clock, measured the way NTP does it. Every answer from the server says when the request arrived
+  // and when the answer left (timer_clock() in includes/timer.php). With the times we sent the request and got
+  // the answer, the true difference between the clocks is known to within half the network delay. The most precise
+  // recent measurement wins, so a slow answer now and then doesn't move the time.
+  function Clock() {
+    this.samples = [];
+    this.offset = 0;
+    this.gap = Date.now() / 1000 - mono();
+  }
+
+  Clock.prototype.now = function () { return mono() + this.offset; };
+
+  // One measurement. sent / got: mono() when the request left and the answer came back. d: the answer.
+  Clock.prototype.add = function (sent, got, d) {
+    if (!d || !(d.received > 0) || !(d.now >= d.received) || !(got >= sent)) return;
+    var s = { offset: (d.received - sent + d.now - got) / 2, err: Math.max(0, got - sent - (d.now - d.received)) / 2, at: got };
+    var best = this.best();
+    // both can't be right, so a clock jumped (e.g. the computer slept): start again from this one
+    if (best && Math.abs(s.offset - best.offset) > s.err + best.err + 0.002) this.samples = [];
+    this.samples.push(s);
+    if (this.samples.length > 12) this.samples.shift();
+    this.offset = this.best().offset;
+  };
+
+  // The page itself is the first measurement: when the browser asked for it and when its first byte came back
+  Clock.prototype.addPage = function (d) {
+    var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    this.add(nav && nav.requestStart > 0 ? nav.requestStart / 1000 : 0, nav && nav.responseStart > 0 ? nav.responseStart / 1000 : mono(), d);
+  };
+
+  // The measurement to trust now: the smallest error, counting the drift since it was taken
+  Clock.prototype.best = function () {
+    var t = mono();
+    var best = null;
+    this.samples.forEach(function (s) {
+      var err = s.err + (t - s.at) * DRIFT;
+      if (!best || err < best.err) best = { offset: s.offset, err: err };
+    });
+    return best;
+  };
+
+  // True (once) when the computer's time jumped against our own clock: it was changed or the computer slept.
+  // Time to measure again.
+  Clock.prototype.jumped = function () {
+    var gap = Date.now() / 1000 - mono();
+    var jumped = Math.abs(gap - this.gap) > 1;
+    this.gap = gap;
+    return jumped;
+  };
+
+  /* ---- the countdown */
 
   // Sizes in em, matching assets/css/screen.css
   var DIGIT = 0.58;   // .clock__d width
@@ -132,5 +191,5 @@
   // Forget the layout so the next render rebuilds (e.g. once the font has loaded)
   function refit(el) { el._key = null; }
 
-  window.Countdown = { left: left, format: format, content: content, render: render, refit: refit };
+  window.Countdown = { Clock: Clock, mono: mono, left: left, format: format, content: content, render: render, refit: refit };
 })();

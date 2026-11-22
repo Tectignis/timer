@@ -16,6 +16,17 @@ function timer_now()
     return round(microtime(true), 3);
 }
 
+// When the server got this request and when it answers. With the times the browser sent the request and got
+// the answer, that pins down the server clock to within half the network delay, the way NTP does it
+// (see Countdown.Clock in assets/js/timer.js). Take it just before sending the answer.
+function timer_clock()
+{
+    return [
+        'received' => round($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true), 4),
+        'now'      => round(microtime(true), 4),
+    ];
+}
+
 // Fills in and cleans up a stored state
 function timer_defaults($state)
 {
@@ -108,13 +119,12 @@ function timer_change(callable $change)
 }
 
 // What a screen needs. The etag lets screens skip downloads when nothing changed.
-function timer_screen_payload()
+function timer_screen_payload($state = null)
 {
-    $state = timer_state();
-    $data = array_intersect_key($state, array_flip([
+    $data = array_intersect_key($state ?? timer_state(), array_flip([
         'status', 'left', 'ends_at', 'view', 'message', 'end_text', 'fg', 'bg', 'faces', 'layout', 'reload',
     ]));
-    return ['etag' => md5(json_encode($data))] + $data + ['now' => timer_now()];
+    return ['etag' => md5(json_encode($data))] + $data;
 }
 
 // ---------------------------------------------------------------- connected screens

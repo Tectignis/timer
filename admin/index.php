@@ -7,10 +7,7 @@ require __DIR__ . '/includes/control.php';
 if (isset($_GET['poll'])) {
     session_write_close(); // don't block other admin requests while polling
     $data = cr_payload();
-    if (($_GET['etag'] ?? '') === $data['etag']) {
-        json_out(['same' => true, 'now' => $data['now']]);
-    }
-    json_out($data);
+    json_out((($_GET['etag'] ?? '') === $data['etag'] ? ['same' => true] : $data) + timer_clock());
 }
 
 // ---- control buttons. Each sends do=verb or do=verb:arg (with JavaScript they are sent in the background)
@@ -132,13 +129,13 @@ if (is_post()) {
     }
 
     if (is_ajax()) {
-        json_out(['ok' => !$error, 'toast' => $error ?? $toast] + cr_payload());
+        json_out(['ok' => !$error, 'toast' => $error ?? $toast] + cr_payload() + timer_clock());
     }
     if ($error || $toast) flash($error ? 'error' : 'ok', $error ?? $toast);
     redirect('admin/index.php');
 }
 
-$data = cr_payload();
+$data = cr_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
 $state = $data['state'];
 $now = $data['now'];
 $left = timer_left($state, $now);
