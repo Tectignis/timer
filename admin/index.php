@@ -91,7 +91,7 @@ if (is_post()) {
                     $s['ends_at'] = $ts;
                     $s['status'] = 'running';
                     log_activity('until', 'Counting down to ' . date('j M, g:i a', (int) $ts));
-                    return 'Counting down to ' . date('j M, g:i a', (int) $ts) . '.';
+                    return 'Countdown started: ' . timer_words($secs) . ' to go.';
 
                 case 'view':
                     if (!in_array($arg, ['timer', 'standby'], true)) return $error = 'Unknown action.';

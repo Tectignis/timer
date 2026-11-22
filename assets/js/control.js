@@ -200,6 +200,14 @@
     });
   });
 
+  /* ---- "Ends at" starts one hour ahead (rounded up to a quarter hour) in the admin's own time zone */
+  (function () {
+    var input = $('[data-cr-until]').elements.until;
+    var d = new Date(Math.ceil((Date.now() + 3600000) / 900000) * 900000);
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    input.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  })();
+
   /* ---- message box */
   var messageBox = $('[data-cr-message]');
   var counter = $('[data-cr-count]');
