@@ -42,6 +42,8 @@ function db()
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_TIMEOUT            => 10, // seconds to wait while another request is writing
         ]);
+        // WAL (set by install.php) stays safe with fewer disk syncs, which keeps the frequent small writes quick
+        $pdo->exec('PRAGMA synchronous = NORMAL');
     }
     return $pdo;
 }

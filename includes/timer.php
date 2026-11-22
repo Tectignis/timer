@@ -93,8 +93,11 @@ function timer_change(callable $change)
         // Writing first takes SQLite's write lock, so other changes wait until this one is committed
         q("INSERT OR IGNORE INTO settings (name, value) VALUES ('timer_state', '{}')");
         $state = timer_defaults(json_decode(q("SELECT value FROM settings WHERE name = 'timer_state'")->fetchColumn(), true));
+        $before = $state;
         $result = $change($state, timer_now());
-        q("UPDATE settings SET value = ? WHERE name = 'timer_state'", [json_encode(timer_defaults($state))]);
+        if ($state !== $before) { // a refused or repeated press changes nothing, so it isn't written
+            q("UPDATE settings SET value = ? WHERE name = 'timer_state'", [json_encode(timer_defaults($state))]);
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
@@ -116,15 +119,22 @@ function timer_screen_payload()
 
 // ---------------------------------------------------------------- connected screens
 
-// A screen checking in
+// A screen checking in. It is written only when its name or size changed or every few seconds,
+// so many check-ins don't queue up for the database's one writer.
 function screen_heartbeat($id, $name, $size)
 {
+    $name = mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._-]/u', '', (string) $name)), 0, 40) ?: null;
+    $size = preg_match('/^\d{2,5}x\d{2,5}$/', (string) $size) ? $size : null;
+    $seen = q('SELECT name, size, last_seen FROM screens WHERE id = ?', [$id])->fetch();
+    if ($seen && $seen['name'] === $name && $seen['size'] === $size && $seen['last_seen'] > db_time('-4 seconds')) {
+        return;
+    }
     q('INSERT INTO screens (id, name, size, user_agent, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT (id) DO UPDATE SET name = excluded.name, size = excluded.size,
        user_agent = excluded.user_agent, last_seen = excluded.last_seen', [
         $id,
-        mb_substr(trim(preg_replace('/[^\p{L}\p{N} ._-]/u', '', (string) $name)), 0, 40) ?: null,
-        preg_match('/^\d{2,5}x\d{2,5}$/', (string) $size) ? $size : null,
+        $name,
+        $size,
         mb_substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
         db_time(),
         db_time(),
@@ -134,6 +144,9 @@ function screen_heartbeat($id, $name, $size)
 // Screens seen in the last day, online first. A screen is online if it checked in during the last 15 seconds.
 function screens()
 {
-    q('DELETE FROM screens WHERE last_seen < ?', [db_time('-1 day')]);
+    $old = db_time('-1 day');
+    if (q('SELECT 1 FROM screens WHERE last_seen < ? LIMIT 1', [$old])->fetchColumn()) { // reading doesn't block screens
+        q('DELETE FROM screens WHERE last_seen < ?', [$old]);
+    }
     return q('SELECT *, last_seen > ? AS online FROM screens ORDER BY online DESC, last_seen DESC', [db_time('-15 seconds')])->fetchAll();
 }

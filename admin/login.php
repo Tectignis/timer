@@ -34,6 +34,7 @@ if (is_post()) {
             }
             redirect('admin/index.php');
         }
+        q('DELETE FROM login_attempts WHERE created_at < ?', [db_time('-1 day')]);
         q('INSERT INTO login_attempts (ip_hash, created_at) VALUES (?, ?)', [ip_hash(), db_time()]);
         $error = 'Wrong email or password.';
     }
