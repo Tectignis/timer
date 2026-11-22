@@ -20,9 +20,14 @@
     return id;
   })();
 
+  // Draws the screen, then again the moment the next second is due (at least once a second)
+  var drawTimer = null;
   function draw() {
+    clearTimeout(drawTimer);
+    var t = clock.now();
     document.body.style.background = data.bg;
-    C.render(el, data, clock.now());
+    C.render(el, data, t);
+    drawTimer = setTimeout(draw, Math.min(1000, C.untilNext(data, t) * 1000 + 2));
   }
 
   // Checks in every 2 seconds: reports this screen and picks up any change from the control room
@@ -50,7 +55,6 @@
   }
 
   draw();
-  setInterval(draw, 100);
   setTimeout(poll, 1000);
   window.addEventListener('resize', draw);
   if (document.fonts) document.fonts.ready.then(function () { C.refit(el); draw(); });

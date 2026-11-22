@@ -70,8 +70,10 @@
     tick();
   }
 
-  // Runs 10 times a second: status, the big readout and the preview
+  // Status, the big readout and the preview. Runs again the moment the next second is due (at least once a second).
+  var tickTimer = null;
   function tick() {
+    clearTimeout(tickTimer);
     var s = data.state;
     var t = now();
     var left = C.left(s, t);
@@ -95,6 +97,7 @@
     $('[data-cr-view-note]').textContent = note;
 
     C.render(screenEl, s, t);
+    tickTimer = setTimeout(tick, Math.min(1000, C.untilNext(s, t) * 1000 + 2));
   }
 
   /* ---- talking to the server */
@@ -225,10 +228,9 @@
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') poll();
   });
-  window.addEventListener('resize', sizePreview);
+  window.addEventListener('resize', function () { sizePreview(); tick(); });
   if (document.fonts) document.fonts.ready.then(function () { C.refit(screenEl); tick(); });
 
   apply(data);
-  setInterval(tick, 100);
   pollTimer = setTimeout(poll, 2000);
 })();

@@ -75,9 +75,19 @@
     return s.left;
   }
 
-  // ['00', '10', '00']. Rounds up, so the screen shows 00:00:01 until the very end.
+  // The whole second shown. Rounds up, so the screen shows 00:00:01 until the very end.
+  function shown(secs) { return Math.ceil(Math.round(secs * 1000) / 1000); }
+
+  // Seconds until the next second is due, i.e. when the countdown should be drawn again (Infinity while stopped)
+  function untilNext(s, now) {
+    var l = left(s, now);
+    if (s.status !== 'running' || l <= 0) return Infinity;
+    return l - (shown(l) - 1);
+  }
+
+  // ['00', '10', '00']
   function groups(secs) {
-    var t = Math.ceil(Math.round(secs * 1000) / 1000);
+    var t = shown(secs);
     return [Math.floor(t / 3600), Math.floor(t % 3600 / 60), t % 60].map(function (n) {
       return n < 10 ? '0' + n : String(n);
     });
@@ -139,6 +149,11 @@
   // Draws the state into a .screen element. Cheap to call often: it only rebuilds when the layout changes
   // and otherwise just swaps the digits that changed.
   function render(el, s, now) {
+    // A small clock correction must never make the running timer step back a second
+    if (s.status === 'running' && el._ends === s.ends_at && now < el._now && el._now - now < 1) now = el._now;
+    el._ends = s.status === 'running' ? s.ends_at : null;
+    el._now = now;
+
     var c = content(s, now);
     var faces = s.faces || 1;
     el.style.setProperty('--fg', s.fg);
@@ -191,5 +206,5 @@
   // Forget the layout so the next render rebuilds (e.g. once the font has loaded)
   function refit(el) { el._key = null; }
 
-  window.Countdown = { Clock: Clock, mono: mono, left: left, format: format, content: content, render: render, refit: refit };
+  window.Countdown = { Clock: Clock, mono: mono, left: left, untilNext: untilNext, format: format, content: content, render: render, refit: refit };
 })();
