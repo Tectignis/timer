@@ -52,8 +52,8 @@ function timer_defaults($state)
     if (!in_array($state['view'], ['timer', 'standby', 'message'], true)) $state['view'] = 'timer';
     if (!in_array($state['layout'], TIMER_LAYOUTS, true)) $state['layout'] = 'auto';
     $state['duration'] = min(TIMER_MAX, max(0, (int) $state['duration']));
-    $state['left'] = min(TIMER_MAX, max(0, (float) $state['left']));
-    $state['ends_at'] = (float) $state['ends_at'];
+    $state['left'] = round(min(TIMER_MAX, max(0, (float) $state['left'])), 3); // to the millisecond
+    $state['ends_at'] = round((float) $state['ends_at'], 3);
     $state['faces'] = min(4, max(1, (int) $state['faces']));
     $state['fg'] = timer_color($state['fg'], '#ffffff');
     $state['bg'] = timer_color($state['bg'], '#000000');
