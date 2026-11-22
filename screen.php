@@ -2,6 +2,7 @@
 // Full-screen countdown for the LED screen.
 // Open: screen.php?key=YOUR_SCREEN_KEY   (the link is in the admin panel; add &name=Pillar to label a screen)
 // What it shows is controlled from the admin control room.
+define('NO_SESSION', true); // screens never sign in
 require __DIR__ . '/includes/timer.php';
 
 $key = (string) ($_GET['key'] ?? '');
@@ -10,16 +11,24 @@ if (setting('screen_key') === '' || !hash_equals(setting('screen_key'), $key)) {
     http_response_code(403);
     exit('Screen key missing or wrong. Copy the screen link from the admin panel.');
 }
-session_write_close(); // screens don't need the session; don't hold it while polling
 
-// The screen checks in every 2 seconds: it reports itself and gets the latest state
+// The screen checks in all the time: it reports itself and gets the latest state. With &wait the server holds the
+// request until something changes, so every screen follows the control room at once.
 if (isset($_GET['state'])) {
     $screen = (string) ($_GET['screen'] ?? '');
-    if (preg_match('/^[a-z0-9]{8,32}$/', $screen)) {
-        screen_heartbeat($screen, $_GET['name'] ?? '', $_GET['size'] ?? '');
-    }
-    $data = timer_screen_payload();
-    json_out((($_GET['etag'] ?? '') === $data['etag'] ? ['same' => true] : $data) + timer_clock());
+    $beat = function () use ($screen) {
+        if (!preg_match('/^[a-z0-9]{8,32}$/', $screen)) return;
+        try {
+            screen_heartbeat($screen, $_GET['name'] ?? '', $_GET['size'] ?? '');
+        } catch (PDOException $e) {
+            // the database is busy: the next check-in marks it
+        }
+    };
+    // PHP's own test server answers one request at a time, so it must not hold one
+    $wait = isset($_GET['wait']) && PHP_SAPI !== 'cli-server' ? SCREEN_WAIT : 0;
+    $data = screen_feed($key, (string) ($_GET['etag'] ?? ''), $wait, $beat);
+    if ($data === null) json_out(['error' => 'key'], 403);
+    json_out($data + timer_clock());
 }
 
 $data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement

@@ -98,25 +98,42 @@
 
     C.render(screenEl, s, t);
     tickTimer = setTimeout(tick, Math.min(1000, C.untilNext(s, t) * 1000 + 2));
+    if (serverClock.jumped()) poll(); // the computer slept or its time was changed: measure the clock again
   }
 
   /* ---- talking to the server */
 
+  // fetch() that gives up after `secs`, so an answer lost on the way can't stall the page
+  function request(url, options, secs) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var giveUp = setTimeout(function () { if (ctrl) ctrl.abort(); }, secs * 1000);
+    options.signal = ctrl ? ctrl.signal : undefined;
+    var done = function () { clearTimeout(giveUp); };
+    var req = fetch(url, options);
+    req.then(done, done);
+    req.abort = function () { if (ctrl) ctrl.abort(); };
+    return req;
+  }
+
+  var polling = null; // the check on its way
   function poll() {
     clearTimeout(pollTimer);
+    if (polling) polling.abort();
     var sent = C.mono();
     var got = 0;
     var seen = actions;
-    fetch(pollUrl + '&etag=' + encodeURIComponent(data.etag), { headers: { 'X-Requested-With': 'fetch' }, cache: 'no-store' })
-      .then(function (r) { got = C.mono(); return r.json(); })
+    var me = polling = request(pollUrl + '&etag=' + encodeURIComponent(data.etag), { headers: { 'X-Requested-With': 'fetch' }, cache: 'no-store' }, 10);
+    me.then(function (r) { got = C.mono(); return r.json(); })
       .then(function (d) {
         if (d.signed_out) return signedOut(d.error);
         serverClock.add(sent, got, d);
         root.classList.remove('is-offline');
         if (!busy && seen === actions) apply(d);
       })
-      .catch(function () { root.classList.add('is-offline'); })
+      .catch(function () { if (polling === me) root.classList.add('is-offline'); })
       .then(function () {
+        if (polling !== me) return; // a newer check took over
+        polling = null;
         if (!root.classList.contains('is-signed-out')) {
           pollTimer = setTimeout(poll, document.visibilityState === 'visible' ? 2000 : 10000);
         }
@@ -136,7 +153,7 @@
     if (button) button.classList.add('is-busy');
     var sent = C.mono();
     var got = 0;
-    return fetch(location.pathname, { method: 'POST', headers: { 'X-Requested-With': 'fetch' }, body: body })
+    return request(location.pathname, { method: 'POST', headers: { 'X-Requested-With': 'fetch' }, body: body }, 20)
       .then(function (r) { got = C.mono(); return r.json(); })
       .then(function (d) {
         busy--;

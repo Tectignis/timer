@@ -8,7 +8,8 @@ ini_set('display_errors', DEBUG ? '1' : '0');
 
 // ---------------------------------------------------------------- session
 
-if (session_status() === PHP_SESSION_NONE) {
+// Screens (screen.php) define NO_SESSION: they never sign in, and their requests are held open
+if (!defined('NO_SESSION') && session_status() === PHP_SESSION_NONE) {
     session_name('countdown');
     session_set_cookie_params([
         'path'     => BASE_URL ?: '/',

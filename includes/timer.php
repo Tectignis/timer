@@ -10,6 +10,7 @@ require_once __DIR__ . '/functions.php';
 
 const TIMER_MAX = 999 * 3600 + 59 * 60 + 59; // 999:59:59
 const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
+const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
 
 function timer_now()
 {
@@ -128,6 +129,34 @@ function timer_screen_payload($state = null)
 }
 
 // ---------------------------------------------------------------- connected screens
+
+// What a screen gets when it checks in: the payload, ['same' => true] when its $etag is still current, or null
+// when $key is no longer the screen key. With $wait the request is held open until the timer changes (checked
+// 20 times a second) or $wait seconds pass, so a change reaches every screen at once instead of at its next
+// check-in. $beat runs every 5 seconds meanwhile, to keep the screen marked online.
+function screen_feed($key, $etag, $wait, callable $beat)
+{
+    $until = microtime(true) + $wait;
+    $next_beat = 0;
+    $seen = null;
+    while (true) {
+        if (microtime(true) >= $next_beat) {
+            $beat();
+            $next_beat = microtime(true) + 5;
+        }
+        $rows = q("SELECT name, value FROM settings WHERE name IN ('screen_key', 'timer_state')")->fetchAll(PDO::FETCH_KEY_PAIR);
+        $raw = ($rows['screen_key'] ?? '') . "
+" . ($rows['timer_state'] ?? '');
+        if ($raw !== $seen) {
+            $seen = $raw;
+            if (($rows['screen_key'] ?? '') === '' || !hash_equals($rows['screen_key'], $key)) return null;
+            $data = timer_screen_payload(timer_defaults(json_decode($rows['timer_state'] ?? '', true)));
+            if ($data['etag'] !== $etag) return $data;
+        }
+        if (microtime(true) >= $until) return ['same' => true];
+        usleep(50000);
+    }
+}
 
 // A screen checking in. It is written only when its name or size changed or every few seconds,
 // so many check-ins don't queue up for the database's one writer.
