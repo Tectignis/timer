@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
 );
 CREATE INDEX IF NOT EXISTS activity_log_created ON activity_log (created_at);
 
--- Screens showing screen.php (they check in every 2 seconds)
+-- Screens showing screen.php (last_seen is refreshed every 5 seconds while they are connected)
 CREATE TABLE IF NOT EXISTS screens (
   id         TEXT PRIMARY KEY,
   name       TEXT NULL,
