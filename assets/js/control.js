@@ -148,6 +148,7 @@
 
   function send(body, button) {
     body.set('csrf', csrf);
+    body.set('at', now().toFixed(3)); // the moment of the press, so the timer starts or stops right on it
     busy++;
     actions++;
     if (button) button.classList.add('is-busy');

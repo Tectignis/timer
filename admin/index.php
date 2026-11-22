@@ -21,6 +21,7 @@ if (is_post()) {
         log_activity('screen_key', 'Made a new screen link');
         $toast = 'New link made. Open it on your screens: the old link stopped working.';
     } else {
+        // `at`: when the button was pressed, on the server clock (see timer_change())
         $toast = timer_change(function (&$s, $now) use ($verb, $arg, &$error) {
             $left = timer_left($s, $now);
             if ($verb === 'toggle') {
@@ -125,7 +126,7 @@ if (is_post()) {
                     return 'Screens are reloading.';
             }
             return $error = 'Unknown action.';
-        });
+        }, (float) ($_POST['at'] ?? 0));
     }
 
     if (is_ajax()) {

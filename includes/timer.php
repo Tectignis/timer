@@ -45,6 +45,7 @@ function timer_defaults($state)
         'faces'    => 1,         // the timer repeated side by side, e.g. once per side of a pillar
         'layout'   => 'auto',    // auto | line (10:00:00) | stacked (hours, minutes, seconds on top of each other)
         'reload'   => 0,         // raised to make every screen reload itself
+        'changed'  => 0.0,       // server time of the last change
     ], is_array($state) ? $state : []);
 
     if (!in_array($state['status'], ['ready', 'running', 'paused'], true)) $state['status'] = 'ready';
@@ -58,6 +59,7 @@ function timer_defaults($state)
     $state['bg'] = timer_color($state['bg'], '#000000');
     $state['recent'] = array_slice(array_values(array_filter((array) $state['recent'], 'is_string')), 0, 5);
     $state['reload'] = (int) $state['reload'];
+    $state['changed'] = (float) $state['changed'];
     return $state;
 }
 
@@ -97,7 +99,10 @@ function timer_words($seconds)
 }
 
 // Changes the state safely (one change at a time). $change gets (&$state, $now); whatever it returns is passed back.
-function timer_change(callable $change)
+// $at is the server time the admin pressed the button, worked out in their browser. If it is within the last
+// 2 seconds it is used as $now, so the timer starts or stops on the moment of the press, not when the request
+// arrived. Never before the last change, so presses still apply in order.
+function timer_change(callable $change, $at = 0)
 {
     $pdo = db();
     $pdo->beginTransaction();
@@ -106,8 +111,11 @@ function timer_change(callable $change)
         q("INSERT OR IGNORE INTO settings (name, value) VALUES ('timer_state', '{}')");
         $state = timer_defaults(json_decode(q("SELECT value FROM settings WHERE name = 'timer_state'")->fetchColumn(), true));
         $before = $state;
-        $result = $change($state, timer_now());
+        $now = timer_now();
+        if ($at > $now - 2 && $at < $now) $now = max(round($at, 3), $state['changed']);
+        $result = $change($state, $now);
         if ($state !== $before) { // a refused or repeated press changes nothing, so it isn't written
+            $state['changed'] = $now;
             q("UPDATE settings SET value = ? WHERE name = 'timer_state'", [json_encode(timer_defaults($state))]);
         }
         $pdo->commit();
