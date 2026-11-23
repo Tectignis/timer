@@ -121,14 +121,16 @@
     if (polling) polling.abort();
     var sent = C.mono();
     var got = 0;
+    var url = '';
     var seen = actions;
     var me = polling = request(pollUrl + '&etag=' + encodeURIComponent(data.etag), { headers: { 'X-Requested-With': 'fetch' }, cache: 'no-store' }, 10);
-    me.then(function (r) { got = C.mono(); return r.json(); })
+    me.then(function (r) { got = C.mono(); url = r.url; return r.json(); })
       .then(function (d) {
         if (d.signed_out) return signedOut(d.error);
-        serverClock.add(sent, got, d);
+        var moved = serverClock.add(sent, got, d, url);
         root.classList.remove('is-offline');
         if (!busy && seen === actions) apply(d);
+        if (moved) tick(); // keep the preview's next second on time
       })
       .catch(function () { if (polling === me) root.classList.add('is-offline'); })
       .then(function () {
@@ -154,12 +156,13 @@
     if (button) button.classList.add('is-busy');
     var sent = C.mono();
     var got = 0;
+    var url = '';
     return request(location.pathname, { method: 'POST', headers: { 'X-Requested-With': 'fetch' }, body: body }, 20)
-      .then(function (r) { got = C.mono(); return r.json(); })
+      .then(function (r) { got = C.mono(); url = r.url; return r.json(); })
       .then(function (d) {
         busy--;
         if (d.signed_out) return signedOut(d.error);
-        serverClock.add(sent, got, d);
+        serverClock.add(sent, got, d, url);
         apply(d);
         A.toast(d.toast, !d.ok);
         return d;
@@ -244,7 +247,9 @@
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') poll();
+    if (document.visibilityState !== 'visible') return;
+    tick(); // timers may have been held back while hidden
+    poll();
   });
   window.addEventListener('resize', function () { sizePreview(); tick(); });
   if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
