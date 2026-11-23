@@ -212,8 +212,99 @@
     var ctx = canvas.getContext('2d');
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(ribbon.art, 0, 0, canvas.width, canvas.height);
-    box.appendChild(canvas);
+    box.insertBefore(canvas, box.firstChild); // under the moving light
     box.classList.add('is-drawn');
+  }
+
+  // The ribbon's moving light: assets/brand/ribbon.webm, a 15 second loop of the ribbon on a transparent background.
+  // One video plays for every face, and each new frame is drawn into a canvas over the still ribbon, so all faces
+  // shine in step and a face that is rebuilt carries on where the light is. Without the video, or in a browser that
+  // drops its transparency, the still ribbon stays.
+  var shine = { src: document.currentScript ? new URL('../brand/ribbon.webm', document.currentScript.src).href : '', video: null, canvases: [], ok: false, failed: false };
+
+  function addShine(box) {
+    if (shine.failed || !shine.src) return;
+    var dpr = window.devicePixelRatio || 1;
+    var canvas = document.createElement('canvas');
+    canvas.className = 'scene__shine';
+    box.appendChild(canvas);
+    canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr));
+    canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    shine.canvases.push(canvas);
+    if (shine.ok) drawShine(canvas);
+    playShine();
+  }
+
+  function playShine() {
+    var v = shine.video;
+    if (!v) {
+      v = shine.video = document.createElement('video');
+      v.muted = true;
+      v.loop = true;
+      v.playsInline = true;
+      v.preload = 'auto';
+      v.addEventListener('error', stopShine);
+      v.src = shine.src;
+      nextShine();
+    }
+    if (v.paused) v.play().catch(function () {}); // not allowed yet: tried again when a face is next drawn
+  }
+
+  function nextShine() {
+    if (shine.video.requestVideoFrameCallback) shine.video.requestVideoFrameCallback(frameShine);
+    else requestAnimationFrame(frameShine);
+  }
+
+  // A new frame of the video: draw it into every ribbon on show, or rest the video when none is
+  function frameShine() {
+    if (shine.failed) return;
+    shine.canvases = shine.canvases.filter(function (c) { return c.isConnected; });
+    if (!shine.canvases.length) {
+      shine.video.pause();
+    } else if (shine.video.readyState >= 2) {
+      if (!shine.ok && !(shine.ok = keepsAlpha(shine.video))) return stopShine();
+      shine.canvases.forEach(drawShine);
+    }
+    nextShine();
+  }
+
+  function drawShine(canvas) {
+    var ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(shine.video, 0, 0, canvas.width, canvas.height);
+    canvas.parentNode.classList.add('is-moving');
+  }
+
+  // True when the browser keeps the video's transparency: the frame's top left corner, above the ribbon, is clear
+  function keepsAlpha(v) {
+    try {
+      var ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(v, 0, 0, 8, 8, 0, 0, 1, 1);
+      return ctx.getImageData(0, 0, 1, 1).data[3] < 128;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function stopShine() {
+    shine.failed = true;
+    shine.canvases.forEach(function (c) {
+      if (c.parentNode) c.parentNode.classList.remove('is-moving');
+      c.remove();
+    });
+    shine.canvases = [];
+    if (shine.video) shine.video.removeAttribute('src');
+  }
+
+  // The browser pauses videos in a tab that isn't showing: play again when it is
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && shine.canvases.length && !shine.failed) playShine();
+  });
+
+  function dressRibbon(box) {
+    paintRibbon(box);
+    addShine(box);
   }
 
   // Fills a face with the gold look: the ribbon, and above it the digits or a message
@@ -224,11 +315,11 @@
     if (c.kind === 'clock') {
       face.innerHTML = scene + '<div class="scene__time">' + clockHtml('line', c.groups) + '</div></div>';
       face.querySelector('.clock').style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
-      paintRibbon(face.querySelector('.scene__ribbon'));
+      dressRibbon(face.querySelector('.scene__ribbon'));
       return;
     }
     face.innerHTML = scene + '</div><div class="scene__text"><div class="msg"></div></div>';
-    paintRibbon(face.querySelector('.scene__ribbon'));
+    dressRibbon(face.querySelector('.scene__ribbon'));
     var box = face.lastChild;
     var top = h * 0.05;
     var height = Math.max(0, g.top + G_TEXT * g.size - top);
