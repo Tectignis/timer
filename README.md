@@ -22,8 +22,9 @@ On the command line you can do step 3 with: `php install.php "Your Name" you@exa
    - `SITE_URL`: the full public address, used in the screen link
    - `SECRET_KEY`: a new long random string
    - `DEBUG`: `false`
-3. Open `/install.php` once, then delete it.
-4. Use HTTPS.
+3. Copy the brand files into `assets/brand/` (see Fonts). They are not in the repo.
+4. Open `/install.php` once, then delete it.
+5. Use HTTPS.
 
 ## Setting up the screen
 
@@ -51,7 +52,8 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 - **One source of truth:** while the timer runs, the server stores the moment it reaches zero. While it is set or paused, the server stores the time left. Each screen works out the time from that and the server clock, so all screens show the same second. If the network drops, the screen keeps counting.
 - **Clock:** every answer from the server says when the request arrived and when the answer left. From that and its own send and receive times, each screen knows the server clock to within half the network delay (the way NTP works) and keeps the most precise recent measurement. It counts with the browser's steady clock, so changing the computer's time does nothing, and it measures again after the computer sleeps. Each new second is drawn the moment it is due.
 - **Instant changes:** a screen's check-in is held open on the server for up to 15 seconds and answered the moment the timer changes. Start, pause and adjust use the moment the button was pressed, so the timer stops on the second the admin saw.
-- **Layout:** the digits fill whatever resolution the screen has. *Auto* puts hours, minutes and seconds on top of each other on tall screens (like one side of a pillar) and on one line on wide ones. *Repeat side by side* draws the timer 2 to 4 times across the screen, one per side of a pillar fed from a single wide output.
+- **Look:** *Gold ribbon* (the default) draws the brand digits in gold on one line with the ribbon under them, placed as on the 3000 × 7000 artwork. On a screen of another shape it stays as wide as the screen and moves up or down to fit. Messages sit above the ribbon. *Plain* draws the digits in the Digits colour with the layout below.
+- **Layout (Plain):** the digits fill whatever resolution the screen has. *Auto* puts hours, minutes and seconds on top of each other on tall screens (like one side of a pillar) and on one line on wide ones. *Repeat side by side* (either look) draws the timer 2 to 4 times across the screen, one per side of a pillar fed from a single wide output.
 - **At zero:** the screen blinks 00:00:00 a few times and holds it, or shows the text set in Display → "At zero, show".
 - **Screen shows:** *Timer*, *Message* (big text) or *Standby* (blank). The timer keeps counting behind a message or standby.
 - **Keyboard (control room):** Space to start or pause, R to reset.
@@ -59,4 +61,11 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 
 ## Fonts
 
-Timer digits use **Roboto Bold** and admin headings use **Archivo**. Both are open-source fonts and are served from `assets/fonts/`.
+In the Plain look the timer digits use **Roboto Bold**, and admin headings use **Archivo**. Both are open-source fonts and are served from `assets/fonts/`.
+
+The Gold ribbon look needs two brand files that are licensed to the client and kept out of the repo. Copy them to each server by hand:
+
+- `assets/brand/digits.woff2`: the brand serif (Regular), converted to WOFF2
+- `assets/brand/ribbon.webp`: the ribbon cut from the artwork, 3000 px wide with a transparent background
+
+Without them the gold look falls back to Georgia and draws no ribbon.
