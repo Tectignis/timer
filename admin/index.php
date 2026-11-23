@@ -18,8 +18,8 @@ if (is_post()) {
 
     if ($verb === 'new_key') {
         save_setting('screen_key', bin2hex(random_bytes(12)));
-        log_activity('screen_key', 'Made a new screen link');
-        $toast = 'New link made. Open it on your screens: the old link stopped working.';
+        log_activity('screen_key', 'Made new screen links');
+        $toast = 'New links made. Open them on your screens: the old links stopped working.';
     } else {
         // `at`: when the button was pressed, on the server clock (see timer_change())
         $toast = timer_change(function (&$s, $now) use ($verb, $arg, &$error) {
@@ -143,13 +143,14 @@ $now = $data['now'];
 $left = timer_left($state, $now);
 $running = $state['status'] === 'running' && $left > 0;
 $link = SITE_URL . '/screen.php?key=' . setting('screen_key');
+$links = ['Video link' => $link . '&ribbon=video', 'Static link' => $link . '&ribbon=static']; // moving or still ribbon
 $d = (int) $state['duration'];
 
 $page = 'index';
 $title = 'Control room';
 $with_screen_css = true;
 $extra_scripts = ['js/timer.js', 'js/control.js'];
-$actions = '<a class="btn btn--ghost btn--sm" href="' . e($link) . '" target="_blank" rel="noopener">Open screen ↗</a>';
+$actions = '<a class="btn btn--ghost btn--sm" href="' . e($links['Video link']) . '" target="_blank" rel="noopener">Open screen ↗</a>';
 include __DIR__ . '/includes/header.php';
 ?>
 <div class="cr" data-control data-status="<?= e($state['status']) ?>" data-poll="<?= e(url('admin/index.php?poll=1')) ?>">
@@ -311,16 +312,22 @@ include __DIR__ . '/includes/header.php';
         </div>
         <div data-cr-region="screens"><?= $data['html']['screens'] ?></div>
 
-        <h3 class="label mt">Screen link</h3>
-        <div class="copy-row">
-            <input class="mono" readonly value="<?= e($link) ?>" aria-label="Screen link" data-copy-source>
-            <button class="btn btn--primary btn--sm" type="button" data-copy>Copy</button>
-            <a class="btn btn--ghost btn--sm" href="<?= e($link) ?>" target="_blank" rel="noopener">Open ↗</a>
+        <div class="stack mt">
+            <?php foreach ($links as $label => $href): ?>
+                <div>
+                    <h3 class="label"><?= $label ?></h3>
+                    <div class="copy-row">
+                        <input class="mono" readonly value="<?= e($href) ?>" aria-label="<?= $label ?>" data-copy-source>
+                        <button class="btn btn--primary btn--sm" type="button" data-copy>Copy</button>
+                        <a class="btn btn--ghost btn--sm" href="<?= e($href) ?>" target="_blank" rel="noopener">Open ↗</a>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         </div>
-        <p class="muted small mt-sm">Open it in Chrome on the computer that feeds the LED screen, then press F11 or double-click for full screen. Add <code>&amp;name=Pillar</code> to the end of the link to name a screen.</p>
-        <form method="post" class="mt-sm" data-confirm="Make a new link? Screens on the old link go blank until you open the new one." data-confirm-ok="Make new link">
+        <p class="muted small mt-sm">The video link moves light along the gold ribbon, the static link keeps it still. Open one in Chrome on the computer that feeds the LED screen, then press F11 or double-click for full screen. Add <code>&amp;name=Pillar</code> to the end of a link to name a screen.</p>
+        <form method="post" class="mt-sm" data-confirm="Make new links? Screens on the old links go blank until you open the new ones." data-confirm-ok="Make new links">
             <?= csrf_field() ?>
-            <button class="btn btn--ghost btn--sm" name="do" value="new_key">Make a new link</button>
+            <button class="btn btn--ghost btn--sm" name="do" value="new_key">Make new links</button>
         </form>
     </section>
 </div>
