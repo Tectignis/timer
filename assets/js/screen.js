@@ -78,7 +78,12 @@
       })
       .then(function () {
         clearTimeout(giveUp);
-        if (current === me) pollTimer = setTimeout(poll, next);
+        me.done = true;
+        if (current !== me) return;
+        // straight on without a timer when there's no pause: browsers hold timers back in tabs that aren't
+        // showing, but not answers, so a hidden screen keeps checking in and stays up to date
+        if (next) pollTimer = setTimeout(poll, next);
+        else poll();
       });
   }
 
@@ -88,17 +93,25 @@
     poll();
   }
 
+  // Showing again (another tab was in front, or the browser paused the page): draw the right second at once,
+  // before the browser shows the page, and check in now unless a check-in is already on its way. That one is
+  // left running, so switching tabs doesn't pile up held requests on the server.
+  function wake() {
+    if (document.visibilityState !== 'visible') return;
+    draw();
+    if (!current || current.done) restart();
+  }
+
   draw();
   poll();
   window.addEventListener('resize', draw);
   window.addEventListener('online', restart);
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState !== 'visible') return;
-    draw(); // timers may have been held back while hidden
-    restart();
-  });
+  document.addEventListener('visibilitychange', wake);
+  document.addEventListener('resume', wake); // the browser froze the page in the background and let it go again
   window.addEventListener('pageshow', function (e) {
-    if (e.persisted) restart(); // the browser brought the page back from its back / forward cache
+    if (!e.persisted) return; // the browser brought the page back from its back / forward cache
+    draw();
+    restart();
   });
   if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
     document.fonts.ready.then(function () { C.refit(el); draw(); });
