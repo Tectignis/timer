@@ -1,6 +1,9 @@
 /includes/config.php
 /database/*.sqlite*
 
+# Brand font and artwork for the gold look: licensed to the client, copied to each server by hand
+/assets/brand/
+
 # Local editor and tooling config
 CLAUDE.md
 AGENTS.md
