@@ -113,6 +113,7 @@ if (is_post()) {
 
                 case 'display':
                     $s['end_text'] = mb_substr(trim(preg_replace('/\s+/u', ' ', post('end_text'))), 0, 120);
+                    if (in_array(post('look'), TIMER_LOOKS, true)) $s['look'] = post('look');
                     $s['fg'] = timer_color(post('fg'), $s['fg']);
                     $s['bg'] = timer_color(post('bg'), $s['bg']);
                     if (in_array(post('layout'), TIMER_LAYOUTS, true)) $s['layout'] = post('layout');
@@ -268,11 +269,19 @@ include __DIR__ . '/includes/header.php';
                 <label class="field"><span>At zero, show</span>
                     <input name="end_text" maxlength="120" placeholder="00:00:00" value="<?= e($state['end_text']) ?>">
                 </label>
+                <div class="field">
+                    <span>Look</span>
+                    <div class="seg seg--radio">
+                        <?php foreach (['gold' => 'Gold ribbon', 'plain' => 'Plain'] as $value => $label): ?>
+                            <label><input type="radio" name="look" value="<?= $value ?>" <?= $state['look'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
                 <div class="colors">
-                    <label class="field field--color"><span>Digits</span><input type="color" name="fg" value="<?= e($state['fg']) ?>"></label>
+                    <label class="field field--color" data-plain-only><span>Digits</span><input type="color" name="fg" value="<?= e($state['fg']) ?>"></label>
                     <label class="field field--color"><span>Background</span><input type="color" name="bg" value="<?= e($state['bg']) ?>"></label>
                 </div>
-                <div class="field">
+                <div class="field" data-plain-only>
                     <span>Layout</span>
                     <div class="seg seg--radio">
                         <?php foreach (['auto' => 'Auto', 'line' => 'One line', 'stacked' => 'Stacked'] as $value => $label): ?>

@@ -10,6 +10,7 @@ require_once __DIR__ . '/functions.php';
 
 const TIMER_MAX = 999 * 3600 + 59 * 60 + 59; // 999:59:59
 const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
+const TIMER_LOOKS = ['gold', 'plain'];
 const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
 
 function timer_now()
@@ -40,6 +41,7 @@ function timer_defaults($state)
         'message'  => '',
         'recent'   => [],        // last few messages, for one-tap reuse
         'end_text' => '',        // shown at zero instead of 00:00:00 ('' = hold 00:00:00)
+        'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
         'bg'       => '#000000',
         'faces'    => 1,         // the timer repeated side by side, e.g. once per side of a pillar
@@ -51,6 +53,7 @@ function timer_defaults($state)
     if (!in_array($state['status'], ['ready', 'running', 'paused'], true)) $state['status'] = 'ready';
     if (!in_array($state['view'], ['timer', 'standby', 'message'], true)) $state['view'] = 'timer';
     if (!in_array($state['layout'], TIMER_LAYOUTS, true)) $state['layout'] = 'auto';
+    if (!in_array($state['look'], TIMER_LOOKS, true)) $state['look'] = 'gold';
     $state['duration'] = min(TIMER_MAX, max(0, (int) $state['duration']));
     $state['left'] = round(min(TIMER_MAX, max(0, (float) $state['left'])), 3); // to the millisecond
     $state['ends_at'] = round((float) $state['ends_at'], 3);
@@ -131,7 +134,7 @@ function timer_change(callable $change, $at = 0)
 function timer_screen_payload($state = null)
 {
     $data = array_intersect_key($state ?? timer_state(), array_flip([
-        'status', 'left', 'ends_at', 'view', 'message', 'end_text', 'fg', 'bg', 'faces', 'layout', 'reload',
+        'status', 'left', 'ends_at', 'view', 'message', 'end_text', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
     ]));
     return ['etag' => md5(json_encode($data))] + $data;
 }
