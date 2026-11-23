@@ -5,14 +5,32 @@
   /* ---- the server clock */
 
   var DRIFT = 0.0001; // how fast two computer clocks can drift apart (s per s), so older measurements count for less
+  var KEEP = 16;      // measurements kept (one per check-in, so a few minutes' worth)
 
   // Our own clock in seconds. It keeps going steadily even when someone changes the computer's time.
   function mono() { return performance.now() / 1000; }
 
+  // When the request really left and the first byte of the answer came back, from the browser's own network
+  // timings. Timing it in JavaScript also counts waiting for a connection and for the page to get round to the
+  // answer (often tens of milliseconds, different on every screen), which would skew the clock.
+  function wire(url, sent, got) {
+    var p = window.performance;
+    if (!url || !p.getEntriesByName) return [sent, got];
+    var list = p.getEntriesByName(url, 'resource');
+    var e = list[list.length - 1];
+    if (p.clearResourceTimings) p.clearResourceTimings(); // the browser keeps only 250: never let it fill up
+    if (e && e.requestStart > 0 && e.responseStart >= e.requestStart &&
+        e.requestStart / 1000 >= sent - 0.001 && e.responseStart / 1000 <= got + 0.001) {
+      return [e.requestStart / 1000, e.responseStart / 1000];
+    }
+    return [sent, got];
+  }
+
   // The server's clock, measured the way NTP does it. Every answer from the server says when the request arrived
   // and when the answer left (timer_clock() in includes/timer.php). With the times we sent the request and got
-  // the answer, the true difference between the clocks is known to within half the network delay. The most precise
-  // recent measurement wins, so a slow answer now and then doesn't move the time.
+  // the answer, the difference between the clocks is pinned to a range as wide as the network delay. Every recent
+  // measurement must be right, so the true difference lies where all their ranges overlap, which narrows with each
+  // check-in. The clock runs on the middle of that overlap.
   function Clock() {
     this.samples = [];
     this.offset = 0;
@@ -22,15 +40,20 @@
   Clock.prototype.now = function () { return mono() + this.offset; };
 
   // One measurement. sent / got: mono() when the request left and the answer came back. d: the answer.
-  Clock.prototype.add = function (sent, got, d) {
-    if (!d || !(d.received > 0) || !(d.now >= d.received) || !(got >= sent)) return;
-    var s = { offset: (d.received - sent + d.now - got) / 2, err: Math.max(0, got - sent - (d.now - d.received)) / 2, at: got };
-    var best = this.best();
-    // both can't be right, so a clock jumped (e.g. the computer slept): start again from this one
-    if (best && Math.abs(s.offset - best.offset) > s.err + best.err + 0.002) this.samples = [];
-    this.samples.push(s);
-    if (this.samples.length > 12) this.samples.shift();
-    this.offset = this.best().offset;
+  // url: the request's address (response.url), for the browser's exact timings. True when the clock moved.
+  Clock.prototype.add = function (sent, got, d, url) {
+    var t = wire(url, sent, got);
+    sent = t[0];
+    got = t[1];
+    if (!d || !(d.received > 0) || !(d.now >= d.received) || !(got >= sent)) return false;
+    var offset = (d.received - sent + d.now - got) / 2;
+    var err = Math.max(0, got - sent - (d.now - d.received)) / 2;
+    this.samples.push({ lo: offset - err, hi: offset + err, at: got });
+    if (this.samples.length > KEEP) this.samples.shift();
+    var r = this.range();
+    var before = this.offset;
+    this.offset = (r.lo + r.hi) / 2;
+    return Math.abs(this.offset - before) > 0.0005;
   };
 
   // The page itself is the first measurement: when the browser asked for it and when its first byte came back
@@ -39,15 +62,26 @@
     this.add(nav && nav.requestStart > 0 ? nav.requestStart / 1000 : 0, nav && nav.responseStart > 0 ? nav.responseStart / 1000 : mono(), d);
   };
 
-  // The measurement to trust now: the smallest error, counting the drift since it was taken
-  Clock.prototype.best = function () {
+  // Where the recent measurements overlap, newest first, each widened by how far the clocks may have drifted since.
+  // An older one that can't be right with the newer ones means a clock jumped (e.g. the computer slept):
+  // it and everything before it are dropped, so the newest measurement always counts.
+  Clock.prototype.range = function () {
     var t = mono();
-    var best = null;
-    this.samples.forEach(function (s) {
-      var err = s.err + (t - s.at) * DRIFT;
-      if (!best || err < best.err) best = { offset: s.offset, err: err };
-    });
-    return best;
+    var lo = -Infinity;
+    var hi = Infinity;
+    for (var i = this.samples.length - 1; i >= 0; i--) {
+      var s = this.samples[i];
+      var drift = (t - s.at) * DRIFT;
+      var l = Math.max(lo, s.lo - drift);
+      var h = Math.min(hi, s.hi + drift);
+      if (l > h) {
+        this.samples.splice(0, i + 1);
+        break;
+      }
+      lo = l;
+      hi = h;
+    }
+    return { lo: lo, hi: hi };
   };
 
   // True (once) when the computer's time jumped against our own clock: it was changed or the computer slept.
