@@ -52,7 +52,7 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 - **One source of truth:** while the timer runs, the server stores the moment it reaches zero. While it is set or paused, the server stores the time left. Each screen works out the time from that and the server clock, so all screens show the same second. If the network drops, the screen keeps counting.
 - **Clock:** every answer from the server says when the request arrived and when the answer left. With the browser's own record of when the request left and the answer came back, each screen pins the server clock to a range (the way NTP works). Every recent measurement must be right, so the screen runs on the middle of where they all overlap, which narrows with each check-in. It counts with the browser's steady clock, so changing the computer's time does nothing, and it measures again after the computer sleeps. Each new second is drawn the moment it is due, and redrawn on time whenever the clock is corrected.
 - **Instant changes:** a screen's check-in is held open on the server for up to 15 seconds and answered the moment the timer changes. Start, pause and adjust use the moment the button was pressed, so the timer stops on the second the admin saw.
-- **Look:** *Gold ribbon* (the default) draws the brand digits in gold on one line with the ribbon under them, placed as on the 3000 × 7000 artwork. On a screen of another shape it stays as wide as the screen and moves up or down to fit. Messages sit above the ribbon. *Plain* draws the digits in the Digits colour with the layout below.
+- **Look:** *Gold ribbon* (the default) draws the brand digits in gold on one line with the ribbon under them, placed as on the 3000 × 7000 artwork. Light moves along the ribbon on a 15 second loop. On a screen of another shape it stays as wide as the screen and moves up or down to fit. Messages sit above the ribbon. *Plain* draws the digits in the Digits colour with the layout below.
 - **Layout (Plain):** the digits fill whatever resolution the screen has. *Auto* puts hours, minutes and seconds on top of each other on tall screens (like one side of a pillar) and on one line on wide ones. *Repeat side by side* (either look) draws the timer 2 to 4 times across the screen, one per side of a pillar fed from a single wide output.
 - **At zero:** the screen blinks 00:00:00 a few times and holds it, or shows the text set in Display → "At zero, show".
 - **Screen shows:** *Timer*, *Message* (big text) or *Standby* (blank). The timer keeps counting behind a message or standby.
@@ -63,9 +63,11 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 
 In the Plain look the timer digits use **Roboto Bold**, and admin headings use **Archivo**. Both are open-source fonts and are served from `assets/fonts/`.
 
-The Gold ribbon look needs two brand files that are licensed to the client and kept out of the repo. Copy them to each server by hand:
+The Gold ribbon look needs three brand files that are licensed to the client and kept out of the repo. Copy them to each server by hand:
 
 - `assets/brand/digits.woff2`: the brand serif (Regular), converted to WOFF2
 - `assets/brand/ribbon.webp`: the ribbon cut from the artwork, 3000 px wide with a transparent background
+- `assets/brand/ribbon.webm`: the moving ribbon ("Pre-reveal ribbon.mov"), cut to the ribbon and kept transparent:
+  `ffmpeg -i "Pre-reveal ribbon.mov" -an -vf crop=1500:356:0:774 -c:v libvpx-vp9 -pix_fmt yuva420p -crf 20 -b:v 0 -auto-alt-ref 0 -row-mt 1 ribbon.webm`
 
-Without them the gold look falls back to Georgia and draws no ribbon.
+Without the font the gold look falls back to Georgia. Without the video it shows the still ribbon, and with neither ribbon file it draws no ribbon.
