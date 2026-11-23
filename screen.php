@@ -32,6 +32,7 @@ if (isset($_GET['state'])) {
 }
 
 $data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
+header('Cache-Control: no-store'); // a stored copy would carry an old clock and state
 ?>
 <!doctype html>
 <html lang="en">
