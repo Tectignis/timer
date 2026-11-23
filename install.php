@@ -85,10 +85,11 @@ if (!$error && !$locked && is_post()) {
             <?= csrf_field() ?>
             <label class="field"><span>Your name</span><input name="name" required value="<?= e(post('name')) ?>"></label>
             <label class="field"><span>Email</span><input type="email" name="email" required value="<?= e(post('email')) ?>"></label>
-            <label class="field"><span>Password (8+ characters)</span><input type="password" name="password" minlength="8" required></label>
+            <?= password_field('Password (8+ characters)', ['name' => 'password', 'minlength' => 8, 'autocomplete' => 'new-password', 'required' => true]) ?>
             <button class="btn btn--primary btn--block">Create admin</button>
         </form>
     <?php endif; ?>
 </main>
+<script src="<?= asset('js/admin.js') ?>" defer></script>
 </body>
 </html>

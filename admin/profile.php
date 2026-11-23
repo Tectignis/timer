@@ -42,8 +42,8 @@ include __DIR__ . '/includes/header.php';
         <?= csrf_field() ?>
         <label class="field"><span>Name</span><input name="name" required autocomplete="name" value="<?= e($me['name']) ?>"></label>
         <label class="field"><span>Email</span><input type="email" name="email" required autocomplete="username" value="<?= e($me['email']) ?>"></label>
-        <label class="field"><span>New password (leave empty to keep it)</span><input type="password" name="new_password" minlength="8" autocomplete="new-password"></label>
-        <label class="field"><span>Current password</span><input type="password" name="current_password" required autocomplete="current-password"></label>
+        <?= password_field('New password (leave empty to keep it)', ['name' => 'new_password', 'minlength' => 8, 'autocomplete' => 'new-password']) ?>
+        <?= password_field('Current password', ['name' => 'current_password', 'required' => true, 'autocomplete' => 'current-password']) ?>
         <div class="row-actions"><button class="btn btn--primary">Save</button></div>
     </form>
 </section>

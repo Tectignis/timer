@@ -61,11 +61,10 @@ if (is_post()) {
         <label class="field"><span>Email</span>
             <input type="email" name="email" autocomplete="username" required autofocus value="<?= e($email) ?>">
         </label>
-        <label class="field"><span>Password</span>
-            <input type="password" name="password" autocomplete="current-password" required>
-        </label>
+        <?= password_field('Password', ['name' => 'password', 'autocomplete' => 'current-password', 'required' => true]) ?>
         <button class="btn btn--primary btn--block" type="submit">Sign in</button>
     </form>
 </main>
+<script src="<?= asset('js/admin.js') ?>" defer></script>
 </body>
 </html>

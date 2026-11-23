@@ -1,4 +1,4 @@
-// Admin panel helpers: in-app confirm dialog, toasts, copy button, keyboard shortcuts.
+// Admin panel helpers: in-app confirm dialog, toasts, copy button, show / hide password, keyboard shortcuts.
 (function () {
   'use strict';
 
@@ -63,6 +63,22 @@
           setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
         });
     });
+  });
+
+  // Show / hide password buttons
+  function showPassword(btn, show) {
+    var box = btn.parentNode;
+    box.querySelector('input').type = show ? 'text' : 'password';
+    box.classList.toggle('is-shown', show);
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-pw-toggle]');
+    if (btn) showPassword(btn, !btn.parentNode.classList.contains('is-shown'));
+  });
+  // Hidden again before sending, so the browser still offers to save the password
+  document.addEventListener('submit', function (e) {
+    e.target.querySelectorAll('.pw.is-shown [data-pw-toggle]').forEach(function (btn) { showPassword(btn, false); });
   });
 
   // Keyboard shortcuts (elements with data-key). Control room: Space start/pause, R reset.
