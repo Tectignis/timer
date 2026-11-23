@@ -6,6 +6,7 @@
 
   var DRIFT = 0.0001; // how fast two computer clocks can drift apart (s per s), so older measurements count for less
   var KEEP = 16;      // measurements kept (one per check-in, so a few minutes' worth)
+  var SLACK = 0.002;  // how exact the timestamps on both sides are (s), added to every measurement's range
 
   // Our own clock in seconds. It keeps going steadily even when someone changes the computer's time.
   function mono() { return performance.now() / 1000; }
@@ -47,7 +48,7 @@
     got = t[1];
     if (!d || !(d.received > 0) || !(d.now >= d.received) || !(got >= sent)) return false;
     var offset = (d.received - sent + d.now - got) / 2;
-    var err = Math.max(0, got - sent - (d.now - d.received)) / 2;
+    var err = Math.max(0, got - sent - (d.now - d.received)) / 2 + SLACK;
     this.samples.push({ lo: offset - err, hi: offset + err, at: got });
     if (this.samples.length > KEEP) this.samples.shift();
     var r = this.range();
@@ -63,8 +64,8 @@
   };
 
   // Where the recent measurements overlap, newest first, each widened by how far the clocks may have drifted since.
-  // An older one that can't be right with the newer ones means a clock jumped (e.g. the computer slept):
-  // it and everything before it are dropped, so the newest measurement always counts.
+  // An older one that can't be right with the newer ones is left out: a clock jumped since (e.g. the computer
+  // slept), so the newest measurements always count.
   Clock.prototype.range = function () {
     var t = mono();
     var lo = -Infinity;
@@ -74,10 +75,7 @@
       var drift = (t - s.at) * DRIFT;
       var l = Math.max(lo, s.lo - drift);
       var h = Math.min(hi, s.hi + drift);
-      if (l > h) {
-        this.samples.splice(0, i + 1);
-        break;
-      }
+      if (l > h) continue;
       lo = l;
       hi = h;
     }
