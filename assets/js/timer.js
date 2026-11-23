@@ -302,24 +302,25 @@
     if (document.visibilityState === 'visible' && shine.canvases.length && !shine.failed) playShine();
   });
 
-  function dressRibbon(box) {
+  // still: the static screen link (screen.php?…&ribbon=static) keeps the ribbon still and never loads the video
+  function dressRibbon(box, still) {
     paintRibbon(box);
-    addShine(box);
+    if (!still) addShine(box);
   }
 
   // Fills a face with the gold look: the ribbon, and above it the digits or a message
-  function drawGold(face, c, hourDigits, w, h) {
+  function drawGold(face, c, hourDigits, w, h, still) {
     var g = goldScene(w, h);
     var scene = '<div class="scene' + (g.size < w - 1 ? ' is-inset' : '') + '" style="font-size:' + g.size + 'px;top:' + g.top +
       'px;left:' + g.left + 'px"><div class="scene__ribbon"></div>';
     if (c.kind === 'clock') {
       face.innerHTML = scene + '<div class="scene__time">' + clockHtml('line', c.groups) + '</div></div>';
       face.querySelector('.clock').style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
-      dressRibbon(face.querySelector('.scene__ribbon'));
+      dressRibbon(face.querySelector('.scene__ribbon'), still);
       return;
     }
     face.innerHTML = scene + '</div><div class="scene__text"><div class="msg"></div></div>';
-    dressRibbon(face.querySelector('.scene__ribbon'));
+    dressRibbon(face.querySelector('.scene__ribbon'), still);
     var box = face.lastChild;
     var top = h * 0.05;
     var height = Math.max(0, g.top + G_TEXT * g.size - top);
@@ -358,6 +359,7 @@
     var c = content(s, now);
     var faces = s.faces || 1;
     var gold = s.look === 'gold';
+    var still = el.getAttribute('data-ribbon') === 'static';
     el.style.setProperty('--fg', s.fg);
     el.style.setProperty('--bg', s.bg);
     el.classList.toggle('is-gold', gold);
@@ -382,7 +384,7 @@
       el._digits = digits;
       Array.prototype.forEach.call(el.children, function (face) {
         if (gold && c.kind !== 'blank') {
-          drawGold(face, c, hourDigits, w, h);
+          drawGold(face, c, hourDigits, w, h, still);
         } else if (c.kind === 'clock') {
           face.innerHTML = clockHtml(layout, c.groups);
           face.firstChild.style.fontSize = clockSize(layout, hourDigits, w, h) + 'px';

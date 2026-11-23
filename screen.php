@@ -1,6 +1,7 @@
 <?php
 // Full-screen countdown for the LED screen.
-// Open: screen.php?key=YOUR_SCREEN_KEY   (the link is in the admin panel; add &name=Pillar to label a screen)
+// Open: screen.php?key=YOUR_SCREEN_KEY&ribbon=video   (the links are in the admin panel; add &name=Pillar to label a screen)
+// &ribbon=video moves light along the gold ribbon, &ribbon=static keeps it still. Without it the ribbon moves.
 // What it shows is controlled from the admin control room.
 define('NO_SESSION', true); // screens never sign in
 require __DIR__ . '/includes/timer.php';
@@ -31,6 +32,7 @@ if (isset($_GET['state'])) {
     json_out($data + timer_clock());
 }
 
+$ribbon = ($_GET['ribbon'] ?? '') === 'static' ? 'static' : 'video';
 $data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
 header('Cache-Control: no-store'); // a stored copy would carry an old clock and state
 ?>
@@ -45,7 +47,7 @@ header('Cache-Control: no-store'); // a stored copy would carry an old clock and
 <link rel="stylesheet" href="<?= asset('css/screen.css') ?>">
 </head>
 <body class="screen-page" style="background: <?= e($data['bg']) ?>">
-<div class="screen" data-screen data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?>"></div>
+<div class="screen" data-screen data-ribbon="<?= $ribbon ?>" data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?>"></div>
 <script type="application/json" id="screen-data"><?= json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <script src="<?= asset('js/timer.js') ?>" defer></script>
 <script src="<?= asset('js/screen.js') ?>" defer></script>
