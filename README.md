@@ -28,7 +28,7 @@ On the command line you can do step 3 with: `php install.php "Your Name" you@exa
 
 ## Setting up the screen
 
-1. In the control room, copy the screen link (Screens → Screen link).
+1. In the control room, copy a screen link (Screens). The **video link** moves light along the gold ribbon, the **static link** keeps the ribbon still. Everything else is the same, and both follow the same timer.
 2. Open it in Chrome on the computer or media box that feeds the LED screen. Press F11 or double-click for full screen.
 3. Add `&name=Pillar` to the end of the link to name the screen in the control room.
 
@@ -38,7 +38,7 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 
 | File / folder | What it does |
 |---|---|
-| `screen.php?key=…` | Full-screen countdown for the LED screen. It keeps a check-in open, so changes arrive at once. |
+| `screen.php?key=…&ribbon=video` | Full-screen countdown for the LED screen. It keeps a check-in open, so changes arrive at once. `&ribbon=static` keeps the gold ribbon still. |
 | `admin/index.php` | Control room: start, pause, reset, adjust, set a duration or an end time, message, standby, display settings, connected screens |
 | `admin/activity.php` | Who did what, and when |
 | `admin/profile.php` | Change your name, email or password |
@@ -52,12 +52,12 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 - **One source of truth:** while the timer runs, the server stores the moment it reaches zero. While it is set or paused, the server stores the time left. Each screen works out the time from that and the server clock, so all screens show the same second. If the network drops, the screen keeps counting.
 - **Clock:** every answer from the server says when the request arrived and when the answer left. With the browser's own record of when the request left and the answer came back, each screen pins the server clock to a range (the way NTP works). Every recent measurement must be right, so the screen runs on the middle of where they all overlap, which narrows with each check-in. It counts with the browser's steady clock, so changing the computer's time does nothing, and it measures again after the computer sleeps. Each new second is drawn the moment it is due, and redrawn on time whenever the clock is corrected.
 - **Instant changes:** a screen's check-in is held open on the server for up to 15 seconds and answered the moment the timer changes. Start, pause and adjust use the moment the button was pressed, so the timer stops on the second the admin saw.
-- **Look:** *Gold ribbon* (the default) draws the brand digits in gold on one line with the ribbon under them, placed as on the 3000 × 7000 artwork. Light moves along the ribbon on a 15 second loop. On a screen of another shape it stays as wide as the screen and moves up or down to fit. Messages sit above the ribbon. *Plain* draws the digits in the Digits colour with the layout below.
+- **Look:** *Gold ribbon* (the default) draws the brand digits in gold on one line with the ribbon under them, placed as on the 3000 × 7000 artwork. Light moves along the ribbon on a 15 second loop, except on the static link. On a screen of another shape it stays as wide as the screen and moves up or down to fit. Messages sit above the ribbon. *Plain* draws the digits in the Digits colour with the layout below.
 - **Layout (Plain):** the digits fill whatever resolution the screen has. *Auto* puts hours, minutes and seconds on top of each other on tall screens (like one side of a pillar) and on one line on wide ones. *Repeat side by side* (either look) draws the timer 2 to 4 times across the screen, one per side of a pillar fed from a single wide output.
 - **At zero:** the screen blinks 00:00:00 a few times and holds it, or shows the text set in Display → "At zero, show".
 - **Screen shows:** *Timer*, *Message* (big text) or *Standby* (blank). The timer keeps counting behind a message or standby.
 - **Keyboard (control room):** Space to start or pause, R to reset.
-- **Screen link:** "Make a new link" stops the old link working. Screens on it go blank.
+- **Screen links:** "Make new links" stops the old video and static links working. Screens on them go blank.
 
 ## Fonts
 
