@@ -69,6 +69,16 @@
   var GAP = 0.06;     // .clock--stacked gap
   var UNITS = ['Hours', 'Minutes', 'Seconds'];
 
+  // The gold look: the digits on one line with the ribbon under them, measured on the 3000 × 7000 artwork.
+  // In em of the scene, whose font size is its width. Matches .scene in assets/css/screen.css.
+  var G_DIGIT = 0.55;    // .is-gold .clock__d width (em of the digits)
+  var G_SEP = 0.31;      // .is-gold .clock__sep width (em of the digits)
+  var G_SIZE = 0.2341;   // digit font size: digits 517 px tall on the 3000 px wide artwork
+  var G_TEXT = 0.2;      // bottom of a message: between the digits' baseline and the ribbon
+  var G_RIBBON = 0.2237; // .scene__ribbon top
+  var G_HEIGHT = 0.491;  // .scene height: top of the digits to the bottom of the ribbon
+  var G_MID = 0.4379;    // middle of the scene, down the artwork's height
+
   // Seconds left at `now` (seconds). Same as timer_left() in includes/timer.php.
   function left(s, now) {
     if (s.status === 'running') return Math.max(0, s.ends_at - now);
@@ -128,6 +138,35 @@
     }).join('') + '</div>';
   }
 
+  // Where the gold scene goes in a w × h face: as wide as the face and as high up as on the artwork, unless the face
+  // is too short for that (then it sits a little above the middle)
+  function goldScene(w, h) {
+    var size = Math.min(w, h * 0.9 / G_HEIGHT);
+    var room = h - size * G_HEIGHT;
+    var top = Math.min(room, Math.max(h * G_MID - size * G_HEIGHT / 2, room * 0.4));
+    return { size: size, top: top, left: (w - size) / 2 };
+  }
+
+  // Fills a face with the gold look: the ribbon, and above it the digits or a message
+  function drawGold(face, c, hourDigits, w, h) {
+    var g = goldScene(w, h);
+    var scene = '<div class="scene' + (g.size < w - 1 ? ' is-inset' : '') + '" style="font-size:' + g.size + 'px;top:' + g.top +
+      'px;left:' + g.left + 'px"><div class="scene__ribbon"></div>';
+    if (c.kind === 'clock') {
+      face.innerHTML = scene + '<div class="scene__time">' + clockHtml('line', c.groups) + '</div></div>';
+      face.querySelector('.clock').style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
+      return;
+    }
+    face.innerHTML = scene + '</div><div class="scene__text"><div class="msg"></div></div>';
+    var box = face.lastChild;
+    var top = h * 0.05;
+    var height = Math.max(0, g.top + G_TEXT * g.size - top);
+    box.style.top = top + 'px';
+    box.style.height = height + 'px';
+    box.firstChild.textContent = c.text;
+    fitText(box.firstChild, height);
+  }
+
   // Largest font size at which the text fits the face
   function fitText(box, h) {
     var lo = 4;
@@ -156,8 +195,10 @@
 
     var c = content(s, now);
     var faces = s.faces || 1;
+    var gold = s.look === 'gold';
     el.style.setProperty('--fg', s.fg);
     el.style.setProperty('--bg', s.bg);
+    el.classList.toggle('is-gold', gold);
     el.classList.toggle('is-ended', !!c.ended && s.view === 'timer');
 
     while (el.children.length < faces) {
@@ -170,15 +211,17 @@
     var w = el.clientWidth / faces;
     var h = el.clientHeight;
     var hourDigits = c.kind === 'clock' ? c.groups[0].length : 0;
-    var layout = c.kind === 'clock' ? pickLayout(s.layout, hourDigits, w, h) : '';
-    var key = [c.kind, layout, hourDigits, c.text || '', faces, Math.round(w), Math.round(h)].join('|');
+    var layout = c.kind === 'clock' ? (gold ? 'line' : pickLayout(s.layout, hourDigits, w, h)) : '';
+    var key = [s.look, c.kind, layout, hourDigits, c.text || '', faces, Math.round(w), Math.round(h)].join('|');
     var digits = c.kind === 'clock' ? c.groups.join('') : '';
 
     if (el._key !== key) {
       el._key = key;
       el._digits = digits;
       Array.prototype.forEach.call(el.children, function (face) {
-        if (c.kind === 'clock') {
+        if (gold && c.kind !== 'blank') {
+          drawGold(face, c, hourDigits, w, h);
+        } else if (c.kind === 'clock') {
           face.innerHTML = clockHtml(layout, c.groups);
           face.firstChild.style.fontSize = clockSize(layout, hourDigits, w, h) + 'px';
         } else if (c.kind === 'text') {

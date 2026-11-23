@@ -247,7 +247,10 @@
     if (document.visibilityState === 'visible') poll();
   });
   window.addEventListener('resize', function () { sizePreview(); tick(); });
-  if (document.fonts) document.fonts.ready.then(function () { C.refit(screenEl); tick(); });
+  if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
+    document.fonts.ready.then(function () { C.refit(screenEl); tick(); });
+    document.fonts.addEventListener('loadingdone', function () { C.refit(screenEl); tick(); });
+  }
 
   apply(data);
   pollTimer = setTimeout(poll, 2000);

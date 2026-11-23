@@ -92,7 +92,10 @@
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') restart();
   });
-  if (document.fonts) document.fonts.ready.then(function () { C.refit(el); draw(); });
+  if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
+    document.fonts.ready.then(function () { C.refit(el); draw(); });
+    document.fonts.addEventListener('loadingdone', function () { C.refit(el); draw(); });
+  }
 
   // Double-click (or tap twice) for full screen
   document.addEventListener('dblclick', function () {
