@@ -143,7 +143,7 @@ function timer_screen_payload($state = null)
 
 // What a screen gets when it checks in: the payload, ['same' => true] when its $etag is still current, or null
 // when $key is no longer the screen key. With $wait the request is held open until the timer changes (checked
-// 20 times a second) or $wait seconds pass, so a change reaches every screen at once instead of at its next
+// 50 times a second) or $wait seconds pass, so a change reaches every screen at once instead of at its next
 // check-in. $beat runs every 5 seconds meanwhile, to keep the screen marked online.
 function screen_feed($key, $etag, $wait, callable $beat)
 {
@@ -165,7 +165,7 @@ function screen_feed($key, $etag, $wait, callable $beat)
             if ($data['etag'] !== $etag) return $data;
         }
         if (microtime(true) >= $until) return ['same' => true];
-        usleep(50000);
+        usleep(20000);
     }
 }
 
