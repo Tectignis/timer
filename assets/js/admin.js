@@ -52,10 +52,10 @@
     });
   }, true);
 
-  // Copy button
+  // Copy buttons: each copies the field in its own row
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var input = document.querySelector('[data-copy-source]');
+      var input = btn.parentNode.querySelector('[data-copy-source]');
       input.select();
       (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.resolve(document.execCommand('copy')))
         .then(function () {
