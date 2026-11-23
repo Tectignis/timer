@@ -179,6 +179,43 @@
     return { size: size, top: top, left: (w - size) / 2 };
   }
 
+  // The ribbon artwork, decoded once and kept. Browsers throw decoded pictures away while a tab isn't showing and
+  // decode them again before showing it, which for this large artwork takes a few hundred milliseconds: long enough
+  // to see an old picture of the tab, with an old time, after switching to it. So the ribbon is drawn into a canvas
+  // at the size it is shown, from pixels decoded once. Until then the CSS background shows it.
+  var ribbon = { art: null, url: '', waiting: [] };
+
+  function paintRibbon(box) {
+    if (ribbon.art) return ribbonCanvas(box);
+    ribbon.waiting.push(box);
+    if (ribbon.url) return; // already on its way
+    var m = /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(box).backgroundImage);
+    if (!m || !window.createImageBitmap) return;
+    ribbon.url = m[1];
+    var img = new Image();
+    img.src = ribbon.url;
+    img.decode()
+      .then(function () { return createImageBitmap(img); })
+      .then(function (art) {
+        ribbon.art = art;
+        ribbon.waiting.forEach(function (b) { if (b.isConnected) ribbonCanvas(b); });
+        ribbon.waiting = [];
+      })
+      .catch(function () { ribbon.url = ''; }); // keep the CSS background
+  }
+
+  function ribbonCanvas(box) {
+    var dpr = window.devicePixelRatio || 1;
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(box.clientWidth * dpr));
+    canvas.height = Math.max(1, Math.round(box.clientHeight * dpr));
+    var ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(ribbon.art, 0, 0, canvas.width, canvas.height);
+    box.appendChild(canvas);
+    box.classList.add('is-drawn');
+  }
+
   // Fills a face with the gold look: the ribbon, and above it the digits or a message
   function drawGold(face, c, hourDigits, w, h) {
     var g = goldScene(w, h);
@@ -187,9 +224,11 @@
     if (c.kind === 'clock') {
       face.innerHTML = scene + '<div class="scene__time">' + clockHtml('line', c.groups) + '</div></div>';
       face.querySelector('.clock').style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
+      paintRibbon(face.querySelector('.scene__ribbon'));
       return;
     }
     face.innerHTML = scene + '</div><div class="scene__text"><div class="msg"></div></div>';
+    paintRibbon(face.querySelector('.scene__ribbon'));
     var box = face.lastChild;
     var top = h * 0.05;
     var height = Math.max(0, g.top + G_TEXT * g.size - top);
