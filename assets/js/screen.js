@@ -20,7 +20,8 @@
     return id;
   })();
 
-  // Draws the screen, then again the moment the next second is due (at least once a second)
+  // Draws the screen, then again the moment the next second is due (at least once a second). Also called whenever
+  // the clock is corrected, so the next second still lands on time.
   var drawTimer = null;
   function draw() {
     clearTimeout(drawTimer);
@@ -34,7 +35,7 @@
   // Checks in over and over: reports this screen and picks up any change from the control room. The server holds
   // each check-in until something changes (up to 15 seconds), so a change shows on every screen at once.
   // The first few come back straight away, to set the clock quickly.
-  var quick = 3;
+  var quick = 5;
   var current = null; // the check-in on its way
   var pollTimer = null;
   function poll() {
@@ -44,13 +45,14 @@
     var wait = quick-- <= 0;
     var sent = C.mono();
     var got = 0;
+    var url = '';
     var next = 0;
     var params = '&state=1&screen=' + screenId + '&etag=' + (data.etag || '') + (wait ? '&wait=1' : '') +
       '&size=' + window.innerWidth + 'x' + window.innerHeight + (name ? '&name=' + encodeURIComponent(name) : '');
     // stop waiting for an answer that will never come (e.g. the network dropped halfway)
     var giveUp = setTimeout(function () { if (me.ctrl) me.ctrl.abort(); }, wait ? 30000 : 10000);
     fetch(feed + params, { cache: 'no-store', signal: me.ctrl ? me.ctrl.signal : undefined })
-      .then(function (r) { got = C.mono(); return r.json(); })
+      .then(function (r) { got = C.mono(); url = r.url; return r.json(); })
       .then(function (d) {
         if (d.error) { // the link was replaced: go blank
           data.view = 'standby';
@@ -58,10 +60,11 @@
           next = 10000;
           return draw();
         }
-        clock.add(sent, got, d);
+        var moved = clock.add(sent, got, d, url);
         if (d.same) {
           // a held check-in that came straight back means the server can't hold them: check in every 2 seconds
-          next = !wait ? 300 : C.mono() - sent < 1 ? 2000 : 0;
+          next = !wait ? 200 : C.mono() - sent < 1 ? 2000 : 0;
+          if (moved) draw();
           return;
         }
         if (d.reload !== reloadAt) return location.reload();
@@ -71,7 +74,7 @@
       .catch(function () { // keep counting with what we have, and set the clock again once back
         if (current !== me) return;
         next = 2000;
-        quick = 2;
+        quick = 3;
       })
       .then(function () {
         clearTimeout(giveUp);
@@ -81,7 +84,7 @@
 
   // Check in again at once, with a few quick ones to set the clock
   function restart() {
-    quick = 2;
+    quick = 3;
     poll();
   }
 
@@ -90,7 +93,12 @@
   window.addEventListener('resize', draw);
   window.addEventListener('online', restart);
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') restart();
+    if (document.visibilityState !== 'visible') return;
+    draw(); // timers may have been held back while hidden
+    restart();
+  });
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) restart(); // the browser brought the page back from its back / forward cache
   });
   if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
     document.fonts.ready.then(function () { C.refit(el); draw(); });
