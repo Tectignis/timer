@@ -137,12 +137,14 @@
 
   function format(secs) { return groups(secs).join(':'); }
 
-  // What the screen shows at `now`: { kind: clock|text|blank, groups, text, ended }
+  // What the screen shows at `now`: { kind: clock|text|video|blank, groups, text, since, ended }.
+  // since: seconds since zero for the reveal video (null when the timer isn't running, so there is no zero to go by)
   function content(s, now) {
     if (s.view === 'standby') return { kind: 'blank' };
     if (s.view === 'message') return { kind: 'text', text: s.message };
     var l = left(s, now);
-    if (l <= 0 && s.end_text) return { kind: 'text', text: s.end_text, ended: true };
+    if (l <= 0 && s.end_show === 'video') return { kind: 'video', since: s.status === 'running' ? now - s.ends_at : null, ended: true };
+    if (l <= 0 && s.end_show !== 'clock' && s.end_text) return { kind: 'text', text: s.end_text, ended: true };
     return { kind: 'clock', groups: groups(l), ended: l <= 0 };
   }
 
@@ -345,6 +347,66 @@
     clock.style.setProperty('--lift', Math.abs(drop) < 0.002 ? 0 : drop.toFixed(4));
   }
 
+  /* ---- the reveal video at zero */
+
+  // The video comes from data-reveal on the .screen element (reveal_url() in includes/timer.php). It is downloaded
+  // whole beforehand, so it starts the moment the timer runs out even on a slow network: a screen fetches it from
+  // half an hour before zero, the control room preview only at zero. Every screen plays it in step with the clock,
+  // looping, so all faces show the same frame. Until it has arrived, or if the browser can't play it, the screen
+  // holds 00:00:00.
+  var REVEAL_EARLY = 1800;
+  var reveals = {}; // address → { src, url: the downloaded copy, failed }
+
+  function reveal(src) {
+    var r = reveals[src];
+    if (r) return r;
+    r = reveals[src] = { src: src, url: '', failed: false };
+    fetch(src)
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.status);
+        return res.blob();
+      })
+      .then(function (b) { r.url = URL.createObjectURL(b); })
+      .catch(function () { setTimeout(function () { delete reveals[src]; }, 30000); }); // try again in a while
+    return r;
+  }
+
+  function showReveal(face, r) {
+    face.innerHTML = '<video class="reveal" muted loop playsinline></video>';
+    var v = face.firstChild;
+    v.muted = true; // the attribute alone doesn't let every browser play it on its own
+    v.addEventListener('error', function () { // the copy won't play: stream it from the server, then give up
+      if (r.url === r.src) r.failed = true;
+      else v.src = r.url = r.src;
+    });
+    v.addEventListener('loadedmetadata', function () { keepReveal(v); });
+    v.src = r.url;
+  }
+
+  // since: seconds since zero at this moment (null: just play)
+  function syncReveal(v, since) {
+    v._sync = since === null ? null : { since: since, at: mono() };
+    keepReveal(v);
+  }
+
+  // Keeps the video on the frame every other screen shows: a small drift is made up by playing a touch faster or
+  // slower, a larger one (e.g. a screen opened after zero) by jumping there
+  function keepReveal(v) {
+    if (v.paused) v.play().catch(function () {}); // not allowed yet: tried again on the next draw
+    var d = v.duration;
+    if (!v._sync || !(d > 0)) return;
+    var want = (v._sync.since + mono() - v._sync.at) % d;
+    var ahead = v.currentTime - want;
+    if (ahead > d / 2) ahead -= d; // the other side of the loop
+    if (ahead < -d / 2) ahead += d;
+    if (Math.abs(ahead) > 0.5) {
+      v.currentTime = want;
+      v.playbackRate = 1;
+    } else {
+      v.playbackRate = Math.abs(ahead) < 0.02 ? 1 : 1 - Math.max(-0.1, Math.min(0.1, ahead));
+    }
+  }
+
   // Largest font size at which the text fits the face
   function fitText(box, h) {
     var lo = 4;
@@ -372,6 +434,12 @@
     el._now = now;
 
     var c = content(s, now);
+    var src = el.getAttribute('data-reveal');
+    var r = null;
+    if (src && (c.kind === 'video' || s.end_show === 'video' && el.hasAttribute('data-screen') && left(s, now) < REVEAL_EARLY)) {
+      r = reveal(src);
+    }
+    if (c.kind === 'video' && !(r && r.url && !r.failed)) c = { kind: 'clock', groups: groups(0), ended: true };
     var faces = s.faces || 1;
     var gold = s.look === 'gold';
     var still = el.getAttribute('data-ribbon') === 'static';
@@ -398,7 +466,9 @@
       el._key = key;
       el._digits = digits;
       Array.prototype.forEach.call(el.children, function (face) {
-        if (gold && c.kind !== 'blank') {
+        if (c.kind === 'video') {
+          showReveal(face, r);
+        } else if (gold && c.kind !== 'blank') {
           drawGold(face, c, hourDigits, w, h, still);
         } else if (c.kind === 'clock') {
           face.innerHTML = clockHtml(layout, c.groups);
@@ -411,10 +481,7 @@
           face.innerHTML = '';
         }
       });
-      return;
-    }
-
-    if (digits !== el._digits) {
+    } else if (digits !== el._digits) {
       el._digits = digits;
       Array.prototype.forEach.call(el.children, function (face) {
         var spans = face.querySelectorAll('.clock__d');
@@ -423,6 +490,8 @@
         }
       });
     }
+
+    if (c.kind === 'video') el.querySelectorAll('.reveal').forEach(function (v) { syncReveal(v, c.since); });
   }
 
   // Forget the layout so the next render rebuilds (e.g. once the font has loaded)

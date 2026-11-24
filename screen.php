@@ -51,7 +51,7 @@ header('Cache-Control: no-store'); // a stored copy would carry an old clock and
 <link rel="stylesheet" href="<?= asset('css/screen.css') ?>">
 </head>
 <body class="screen-page" style="background: <?= e($data['bg']) ?>">
-<div class="screen" data-screen data-ribbon="<?= $ribbon ?>"<?php if ($face_name): ?> data-face="<?= e($face_name) ?>"<?php endif; ?> data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?><?= $face_name ? '; --ratio: ' . round($face_w / $face_h, 4) : '' ?>"></div>
+<div class="screen" data-screen data-ribbon="<?= $ribbon ?>"<?php if ($face_name): ?> data-face="<?= e($face_name) ?>"<?php endif; ?> data-reveal="<?= e(reveal_url($face)) ?>" data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?><?= $face_name ? '; --ratio: ' . round($face_w / $face_h, 4) : '' ?>"></div>
 <script type="application/json" id="screen-data"><?= json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <script src="<?= asset('js/timer.js') ?>" defer></script>
 <script src="<?= asset('js/screen.js') ?>" defer></script>
