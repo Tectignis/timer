@@ -29,7 +29,7 @@ On the command line you can do step 3 with: `php install.php "Your Name" you@exa
 ## Setting up the screen
 
 1. In the control room, copy a screen link (Screens). The monolith has two face shapes, each with its own links: **Sides** (1500 × 3000 mm) and **Front and back** (2000 × 3000 mm). Each comes as a **video link**, which moves light along the gold ribbon, and a **static link**, which keeps the ribbon still. All of them follow the same timer.
-2. Open it in Chrome on the computer or media box that feeds that face. Press F11, so the browser bars and the taskbar don't show on the LED. The face is laid out in its own shape and then stretched to fill the whole screen. The LED squeezes the computer's picture onto the face, which brings it back into shape. On a 16:9 laptop it looks stretched sideways, and on the face it looks right.
+2. Open it in Chrome on the computer or media box that feeds that face. Press F11, so the browser bars and the taskbar don't show on the LED. The face is laid out in its own shape and then stretched to fill the whole screen. The LED squeezes the computer's picture onto the face, which brings it back into shape. On a 16:9 laptop it looks stretched sideways, and on the face it looks right. The digits are the same size and at the same height on every face, so the time lines up round the corners. The ribbon fills each face's width.
 3. A screen shows up in the control room as "Sides" or "Front and back". Add `&name=Left` to the end of the link to give it its own name.
 
 For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<screen link>"`) and turn off sleep and the screensaver on that computer. The page also asks the browser to keep the display awake.

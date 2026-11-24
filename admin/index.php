@@ -335,7 +335,7 @@ include __DIR__ . '/includes/header.php';
                 </div>
             <?php endforeach; ?>
         </div>
-        <p class="muted small mt-sm">Sides links are drawn for a 1500 × 3000 side, front and back links for the 2000 × 3000 front and back. They fill the whole screen, stretched sideways on a laptop, and the LED squeezes them back into shape. Video links move light along the gold ribbon, static links keep it still. Open one in Chrome on the computer that feeds that face, then press F11 so the browser bars and the taskbar don't show on the LED. Add <code>&amp;name=Left</code> to the end of a link to name a screen.</p>
+        <p class="muted small mt-sm">Sides links are drawn for a 1500 × 3000 side, front and back links for the 2000 × 3000 front and back. They fill the whole screen, stretched sideways on a laptop, and the LED squeezes them back into shape. The digits are the same size and height on every face. Video links move light along the gold ribbon, static links keep it still. Open one in Chrome on the computer that feeds that face, then press F11 so the browser bars and the taskbar don't show on the LED. Add <code>&amp;name=Left</code> to the end of a link to name a screen.</p>
         <form method="post" class="mt-sm" data-confirm="Make new links? Screens on the old links go blank until you open the new ones." data-confirm-ok="Make new links">
             <?= csrf_field() ?>
             <button class="btn btn--ghost btn--sm" name="do" value="new_key">Make new links</button>
