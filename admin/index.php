@@ -112,6 +112,7 @@ if (is_post()) {
                     return 'Your message is on screen.';
 
                 case 'display':
+                    if (in_array(post('end_show'), TIMER_END_SHOWS, true)) $s['end_show'] = post('end_show');
                     $s['end_text'] = mb_substr(trim(preg_replace('/\s+/u', ' ', post('end_text'))), 0, 120);
                     if (in_array(post('look'), TIMER_LOOKS, true)) $s['look'] = post('look');
                     $s['fg'] = timer_color(post('fg'), $s['fg']);
@@ -165,7 +166,7 @@ include __DIR__ . '/includes/header.php';
     <section class="panel stage" aria-label="Timer controls">
         <div class="stage__preview">
             <div class="preview" data-cr-preview>
-                <div class="screen" data-cr-screen></div>
+                <div class="screen" data-cr-screen data-reveal="<?= e(reveal_url()) ?>"></div>
             </div>
         </div>
 
@@ -271,8 +272,16 @@ include __DIR__ . '/includes/header.php';
             <h2>Display</h2>
             <form method="post" class="stack" data-cr-form data-cr-display>
                 <?= csrf_field() ?>
-                <label class="field"><span>At zero, show</span>
-                    <input name="end_text" maxlength="120" placeholder="00:00:00" value="<?= e($state['end_text']) ?>">
+                <div class="field">
+                    <span>At zero, show</span>
+                    <div class="seg seg--radio">
+                        <?php foreach (['clock' => '00:00:00', 'text' => 'Text', 'video' => 'Reveal video'] as $value => $label): ?>
+                            <label><input type="radio" name="end_show" value="<?= $value ?>" <?= $state['end_show'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <label class="field" data-end-text><span>Text at zero</span>
+                    <input name="end_text" maxlength="120" placeholder="e.g. We are live" value="<?= e($state['end_text']) ?>">
                 </label>
                 <div class="field">
                     <span>Look</span>

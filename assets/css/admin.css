@@ -271,6 +271,7 @@ kbd {
 .field--color input { height: 44px; padding: 4px; cursor: pointer; }
 /* The gold look has its own digit colour and placement */
 .stack:has(input[name="look"][value="gold"]:checked) [data-plain-only] { display: none; }
+.stack:has(input[name="end_show"]:checked:not([value="text"])) [data-end-text] { display: none; }
 
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
