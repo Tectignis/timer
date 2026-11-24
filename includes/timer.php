@@ -18,6 +18,12 @@ const SCREEN_FACES = [
     'side'  => ['Sides', 1500, 3000],
     'front' => ['Front and back', 2000, 3000],
 ];
+// Faces that show fixed words, one per line, in place of the countdown (keyed like SCREEN_FACES, i.e. by the face in
+// the link, never by its display name). They check in with the control room like every screen, but never draw the
+// timer, the ribbon, a message or the reveal video. See screen.php and assets/js/screen.js.
+const SCREEN_WORDS = [
+    'side' => ['zero', 'zero', 'zero'],
+];
 
 function timer_now()
 {

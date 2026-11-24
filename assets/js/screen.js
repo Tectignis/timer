@@ -20,6 +20,97 @@
     return id;
   })();
 
+  // The sides of the monolith show fixed words instead of the countdown (SCREEN_WORDS in includes/timer.php).
+  // screen.php marks such a face with data-words and sends the words with the page. data-face holds the face's
+  // display name ("Sides"), not the face in the link, so it is never compared on its own: data-face-id carries
+  // the face from the link ("side"). A page from an older screen.php has neither, so its name is matched too,
+  // whatever its case, and the words are put in here.
+  var WORDS = ['zero', 'zero', 'zero']; // only for that older page; screen.php sends SCREEN_WORDS
+  var faceId = (el.getAttribute('data-face-id') || el.getAttribute('data-face') || '').trim().toLowerCase();
+  var words = el.hasAttribute('data-words') || faceId === 'side' || faceId === 'sides' ? wordsBox() : null;
+
+  function wordsBox() {
+    var box = el.querySelector('.words');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'words';
+      box.setAttribute('role', 'img');
+      box.setAttribute('aria-label', WORDS.join(' '));
+      WORDS.forEach(function (word) {
+        var w = document.createElement('span');
+        w.className = 'words__w';
+        w.textContent = word;
+        box.appendChild(w);
+      });
+      el.innerHTML = '';
+      el.appendChild(box);
+    }
+    el.classList.add('is-words');
+    el.setAttribute('data-reveal', ''); // never fetch the reveal video
+    return box;
+  }
+
+  // The words on the face, on the background the control room set. Standby (and a replaced link) blanks them, as
+  // it blanks every screen. Nothing else from the control room shows here: no time, message or video.
+  function showWords() {
+    el.style.setProperty('--bg', data.bg);
+    var hide = data.view === 'standby';
+    if (words._hidden !== hide) words.style.visibility = (words._hidden = hide) ? 'hidden' : '';
+  }
+
+  // Sizes the words to the face and centres their letters on it. Each word's letters are WORDS_WIDTH of the face
+  // wide, unless all of them would then be taller than WORDS_HEIGHT of it, with WORDS_GAP of a letter's height
+  // between two words. The letters are measured, not the line boxes, so the words sit in the middle whatever the
+  // font. Laid out sizes (offset*, client*): the face is stretched to the window afterwards (stretch()).
+  var WORDS_WIDTH = 0.78;
+  var WORDS_HEIGHT = 0.64;
+  var WORDS_GAP = 0.42;
+  var measure = null;
+  function fitWords() {
+    var w = el.clientWidth;
+    var h = el.clientHeight;
+    var list = words && words.children;
+    if (!list || !list.length || !w || !h) return;
+    var style = getComputedStyle(list[0]);
+    measure = measure || document.createElement('canvas').getContext('2d');
+    measure.font = style.fontStyle + ' ' + style.fontWeight + ' 100px ' + style.fontFamily;
+    var ink = [];
+    var wide = 0;
+    var up = 0;
+    var down = 0;
+    Array.prototype.forEach.call(list, function (word) { // letters' extent per px of font size
+      var m = measure.measureText(word.textContent);
+      var i = m.actualBoundingBoxAscent === undefined
+        ? { left: 0, right: m.width / 100, up: 0.5, down: 0, advance: m.width / 100 } // an old browser: guess the height
+        : { left: m.actualBoundingBoxLeft / 100, right: m.actualBoundingBoxRight / 100, up: m.actualBoundingBoxAscent / 100,
+            down: m.actualBoundingBoxDescent / 100, advance: m.width / 100 };
+      ink.push(i);
+      wide = Math.max(wide, i.left + i.right);
+      up = Math.max(up, i.up);
+      down = Math.max(down, i.down);
+    });
+    var tall = up + down;
+    if (!(wide > 0) || !(tall > 0)) return;
+    var n = list.length;
+    var size = Math.min(w * WORDS_WIDTH / wide, h * WORDS_HEIGHT / (tall * (n + (n - 1) * WORDS_GAP)));
+    words.style.transform = '';
+    words.style.fontSize = size.toFixed(3) + 'px';
+    words.style.lineHeight = (tall * (1 + WORDS_GAP)).toFixed(4); // one word's letters, then the gap
+    // Each word's letters in the middle across (the font centres its advance, which can sit a little to one side)
+    Array.prototype.forEach.call(list, function (word, k) {
+      word.style.left = ((ink[k].advance / 2 - (ink[k].right - ink[k].left) / 2) * size).toFixed(2) + 'px';
+    });
+    // and all of them in the middle down: find the first word's baseline, then move the block by what's left over
+    var mark = document.createElement('span');
+    mark.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    list[0].appendChild(mark);
+    var base = mark.offsetTop + list[0].offsetTop; // from the top of .words, which covers the face
+    list[0].removeChild(mark);
+    var top = base - up * size;
+    var bottom = base + (n - 1) * tall * (1 + WORDS_GAP) * size + down * size;
+    words.style.transform = 'translateY(' + (h / 2 - (top + bottom) / 2).toFixed(2) + 'px)';
+  }
+
   // A face of the monolith is laid out in its own shape and stretched to fill the window (assets/css/screen.css)
   function stretch() {
     if (!el.hasAttribute('data-face') || !el.offsetWidth || !el.offsetHeight) return;
@@ -28,15 +119,29 @@
   }
 
   // Draws the screen, then again the moment the next second is due (at least once a second). Also called whenever
-  // the clock is corrected, so the next second still lands on time.
+  // the clock is corrected, so the next second still lands on time. A face with fixed words never draws the
+  // countdown (no digits, ribbon, message or reveal video), but still goes round once a second to notice the
+  // computer waking up.
   var drawTimer = null;
   function draw() {
     clearTimeout(drawTimer);
     var t = clock.now();
     document.body.style.background = data.bg;
-    C.render(el, data, t);
-    drawTimer = setTimeout(draw, Math.min(1000, C.untilNext(data, t) * 1000 + 2));
+    if (words) {
+      showWords();
+      drawTimer = setTimeout(draw, 1000);
+    } else {
+      C.render(el, data, t);
+      drawTimer = setTimeout(draw, Math.min(1000, C.untilNext(data, t) * 1000 + 2));
+    }
     if (clock.jumped()) restart(); // the computer slept or its time was changed
+  }
+
+  // Lays the screen out again for a new window size or once a font has arrived
+  function refit() {
+    if (words) fitWords();
+    else C.refit(el);
+    draw();
   }
 
   // Checks in over and over: reports this screen and picks up any change from the control room. The server holds
@@ -110,9 +215,10 @@
   }
 
   stretch();
+  if (words) fitWords();
   draw();
   poll();
-  window.addEventListener('resize', function () { stretch(); C.refit(el); draw(); });
+  window.addEventListener('resize', function () { stretch(); refit(); });
   window.addEventListener('online', restart);
   document.addEventListener('visibilitychange', wake);
   document.addEventListener('resume', wake); // the browser froze the page in the background and let it go again
@@ -122,8 +228,8 @@
     restart();
   });
   if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
-    document.fonts.ready.then(function () { C.refit(el); draw(); });
-    document.fonts.addEventListener('loadingdone', function () { C.refit(el); draw(); });
+    document.fonts.ready.then(refit);
+    document.fonts.addEventListener('loadingdone', refit);
   }
 
   // Double-click (or tap twice) for full screen

@@ -165,3 +165,33 @@ html:has(.screen-page), .screen-page { height: 100%; }
   transform: scale(var(--sx, 1), var(--sy, 1));
 }
 .screen-page.is-idle, .screen-page.is-idle * { cursor: none; }
+
+/* ---------------------------------------------------------------- fixed words (the sides of the monolith)
+   A face in SCREEN_WORDS (includes/timer.php) shows its words, one per line, in place of the countdown: no digits,
+   no ribbon. Gold letters of the brand font on the background, in the face's shape and stretched like any face.
+   assets/js/screen.js sizes them to the face and centres their letters; until it has, they are sized here. */
+.screen.is-words { container-type: size; }
+.words {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: "Gold", Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: 41cqw;
+  line-height: .85;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* The gold only paints inside the box: reach past the line so the round letters are never cut off */
+.words__w {
+  position: relative;
+  padding: .25em .1em;
+  margin: -.25em -.1em;
+  background: linear-gradient(115deg, #e2c074, #eed383 30%, #d2a65f 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
