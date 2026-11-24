@@ -28,9 +28,9 @@ On the command line you can do step 3 with: `php install.php "Your Name" you@exa
 
 ## Setting up the screen
 
-1. In the control room, copy a screen link (Screens). The **video link** moves light along the gold ribbon, the **static link** keeps the ribbon still. Everything else is the same, and both follow the same timer.
-2. Open it in Chrome on the computer or media box that feeds the LED screen. Press F11 or double-click for full screen.
-3. Add `&name=Pillar` to the end of the link to name the screen in the control room.
+1. In the control room, copy a screen link (Screens). The monolith has two face shapes, each with its own links: **Sides** (1500 × 3000 mm) and **Front and back** (2000 × 3000 mm). Each comes as a **video link**, which moves light along the gold ribbon, and a **static link**, which keeps the ribbon still. All of them follow the same timer.
+2. Open it in Chrome on the computer or media box that feeds that face. Press F11 or double-click for full screen. A face keeps its shape: in a window of another shape it sits in the middle with the background around it.
+3. A screen shows up in the control room as "Sides" or "Front and back". Add `&name=Left` to the end of the link to give it its own name.
 
 For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<screen link>"`) and turn off sleep and the screensaver on that computer. The page also asks the browser to keep the display awake.
 
@@ -38,7 +38,7 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 
 | File / folder | What it does |
 |---|---|
-| `screen.php?key=…&ribbon=video` | Full-screen countdown for the LED screen. It keeps a check-in open, so changes arrive at once. `&ribbon=static` keeps the gold ribbon still. |
+| `screen.php?key=…&face=side&ribbon=video` | Full-screen countdown for one face of the monolith (`face=side` or `face=front`, left out it fills the window). It keeps a check-in open, so changes arrive at once. `&ribbon=static` keeps the gold ribbon still. |
 | `admin/index.php` | Control room: start, pause, reset, adjust, set a duration or an end time, message, standby, display settings, connected screens |
 | `admin/activity.php` | Who did what, and when |
 | `admin/profile.php` | Change your name, email or password |
@@ -54,7 +54,7 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 - **Instant changes:** a screen's check-in is held open on the server for up to 15 seconds and answered the moment the timer changes. Start, pause and adjust use the moment the button was pressed, so the timer stops on the second the admin saw.
 - **Look:** *Gold ribbon* (the default) draws the brand digits in gold on one line with the ribbon under them, placed as on the 3000 × 7000 artwork. Light moves along the ribbon on a 15 second loop, except on the static link. On a screen of another shape it stays as wide as the screen and moves up or down to fit. Messages sit above the ribbon. *Plain* draws the digits in the Digits colour with the layout below.
 - **Layout (Plain):** the digits fill whatever resolution the screen has. *Auto* puts hours, minutes and seconds on top of each other on tall screens (like one side of a pillar) and on one line on wide ones. *Repeat side by side* (either look) draws the timer 2 to 4 times across the screen, one per side of a pillar fed from a single wide output.
-- **At zero:** the screen blinks 00:00:00 a few times and holds it, or shows the text set in Display → "At zero, show".
+- **At zero:** set in Display → "At zero, show". *Reveal video* (the default) plays the reveal video in a loop. Every screen plays it in step with the clock, so all faces show the same frame, and a screen opened later joins at the right moment. Screens download it whole from half an hour before zero, so it starts on the second even on a slow network. Until it has arrived, or without the file, the screen holds 00:00:00. *00:00:00* blinks it a few times and holds it. *Text* shows the text typed there.
 - **Screen shows:** *Timer*, *Message* (big text) or *Standby* (blank). The timer keeps counting behind a message or standby.
 - **Keyboard (control room):** Space to start or pause, R to reset.
 - **Screen links:** "Make new links" stops the old video and static links working. Screens on them go blank.
@@ -69,5 +69,8 @@ The Gold ribbon look needs three brand files that are licensed to the client and
 - `assets/brand/ribbon.webp`: the ribbon cut from the artwork, 3000 px wide with a transparent background
 - `assets/brand/ribbon.webm`: the moving ribbon ("Pre-reveal ribbon.mov"), cut to the ribbon and kept transparent:
   `ffmpeg -i "Pre-reveal ribbon.mov" -an -vf crop=1500:356:0:774 -c:v libvpx-vp9 -pix_fmt yuva420p -crf 20 -b:v 0 -auto-alt-ref 0 -row-mt 1 ribbon.webm`
+- `assets/brand/reveal.mp4`: the reveal video played at zero ("Monolitth_5.mp4", 1500 × 3500), without its silent sound track:
+  `ffmpeg -i Monolitth_5.mp4 -map 0:v:0 -c copy -movflags +faststart reveal.mp4`
+  It is shown whole on every face, with the background at its sides. When artwork made for a face arrives, save it as `reveal-side.mp4` or `reveal-front.mp4` (H.264 MP4) and that face plays it instead.
 
-Without the font the gold look falls back to Georgia. Without the video it shows the still ribbon, and with neither ribbon file it draws no ribbon.
+Without the font the gold look falls back to Georgia. Without the ribbon video it shows the still ribbon, and with neither ribbon file it draws no ribbon. Without a reveal video the screen holds 00:00:00 at zero.
