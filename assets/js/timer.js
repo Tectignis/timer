@@ -315,7 +315,9 @@
       'px;left:' + g.left + 'px"><div class="scene__ribbon"></div>';
     if (c.kind === 'clock') {
       face.innerHTML = scene + '<div class="scene__time">' + clockHtml('line', c.groups) + '</div></div>';
-      face.querySelector('.clock').style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
+      var clock = face.querySelector('.clock');
+      clock.style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
+      seatDigits(clock);
       dressRibbon(face.querySelector('.scene__ribbon'), still);
       return;
     }
@@ -328,6 +330,19 @@
     box.style.height = height + 'px';
     box.firstChild.textContent = c.text;
     fitText(box.firstChild, height);
+  }
+
+  // The gold digits' line ends at their baseline through the font's ascent-override (assets/css/screen.css). Safari
+  // ignores it and sets them lower, by the font's own line height. Measure where the baseline really is and lift
+  // the digits back onto the bottom of the line, in em so the smaller colon moves the same way.
+  function seatDigits(clock) {
+    var d = clock.querySelector('.clock__d');
+    var mark = document.createElement('span');
+    mark.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:.4em'; // .4em above the baseline, inside the line
+    d.appendChild(mark);
+    var drop = (mark.getBoundingClientRect().bottom - d.getBoundingClientRect().bottom) / parseFloat(getComputedStyle(clock).fontSize) + 0.4;
+    d.removeChild(mark);
+    clock.style.setProperty('--lift', Math.abs(drop) < 0.002 ? 0 : drop.toFixed(4));
   }
 
   // Largest font size at which the text fits the face

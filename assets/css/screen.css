@@ -15,7 +15,8 @@
   font-family: "Gold";
   src: url(../brand/digits.woff2) format("woff2");
   font-display: block;
-  /* the line box runs from the top of the digits to their baseline, so they sit exactly where the artwork has them */
+  /* the line box runs from the top of the digits to their baseline, so they sit exactly where the artwork has them.
+     Safari ignores these three: seatDigits() in assets/js/timer.js lifts the digits there. */
   ascent-override: 72.8%;
   descent-override: 0%;
   line-gap-override: 0%;
@@ -121,16 +122,19 @@
   justify-content: center;
 }
 
-.is-gold .clock { line-height: .728; align-items: flex-end; }
+/* --lift: how far the browser set the digits below their line, in em (seatDigits() in assets/js/timer.js) */
+.is-gold .clock { --lift: 0; line-height: .728; align-items: flex-end; }
 .is-gold .clock__d { width: .55em; }
 /* a smaller colon, centred on the digits */
-.is-gold .clock__sep { width: .588em; font-size: .527em; color: #dcb76d; transform: translateY(-.448em); }
+.is-gold .clock__sep { width: .588em; font-size: .527em; color: #dcb76d; transform: translateY(calc(-.448em - var(--lift) * 1em)); }
 .is-gold .clock__g, .is-gold .msg {
   background: linear-gradient(115deg, #e2c074, #eed383 30%, #d2a65f 90%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
+/* The gold only paints inside the box: reach past the line so the round digits' bottoms are never cut off */
+.is-gold .clock__g { position: relative; top: calc(var(--lift) * -1em); padding: .1em 0; margin: -.1em 0; }
 
 /* Time's up: blink a few times, then hold */
 .screen.is-ended .clock { animation: ended 1s step-end 6; }
