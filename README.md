@@ -29,7 +29,7 @@ On the command line you can do step 3 with: `php install.php "Your Name" you@exa
 ## Setting up the screen
 
 1. In the control room, copy a screen link (Screens). The monolith has two face shapes, each with its own links: **Sides** (1500 × 3000 mm) and **Front and back** (2000 × 3000 mm). Each comes as a **video link**, which moves light along the gold ribbon, and a **static link**, which keeps the ribbon still. All of them follow the same timer.
-2. Open it in Chrome on the computer or media box that feeds that face. Press F11 or double-click for full screen. A face keeps its shape: in a window of another shape it sits in the middle with the background around it.
+2. Open it in Chrome on the computer or media box that feeds that face. Press F11, so the browser bars and the taskbar don't show on the LED. The face is laid out in its own shape and then stretched to fill the whole screen. The LED squeezes the computer's picture onto the face, which brings it back into shape. On a 16:9 laptop it looks stretched sideways, and on the face it looks right.
 3. A screen shows up in the control room as "Sides" or "Front and back". Add `&name=Left` to the end of the link to give it its own name.
 
 For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<screen link>"`) and turn off sleep and the screensaver on that computer. The page also asks the browser to keep the display awake.
@@ -38,7 +38,7 @@ For a screen that runs all day, start Chrome in kiosk mode (`chrome --kiosk "<sc
 
 | File / folder | What it does |
 |---|---|
-| `screen.php?key=…&face=side&ribbon=video` | Full-screen countdown for one face of the monolith (`face=side` or `face=front`, left out it fills the window). It keeps a check-in open, so changes arrive at once. `&ribbon=static` keeps the gold ribbon still. |
+| `screen.php?key=…&face=side&ribbon=video` | Full-screen countdown for one face of the monolith (`face=side` or `face=front`), stretched to fill the screen. Left out, it is laid out for the window's own shape. It keeps a check-in open, so changes arrive at once. `&ribbon=static` keeps the gold ribbon still. |
 | `admin/index.php` | Control room: start, pause, reset, adjust, set a duration or an end time, message, standby, display settings, connected screens |
 | `admin/activity.php` | Who did what, and when |
 | `admin/profile.php` | Change your name, email or password |
