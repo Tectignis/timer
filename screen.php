@@ -37,6 +37,8 @@ $ribbon = ($_GET['ribbon'] ?? '') === 'static' ? 'static' : 'video';
 // &face=side or &face=front: the screen keeps that face's shape, in the middle of a window of another shape
 $face = (string) ($_GET['face'] ?? '');
 [$face_name, $face_w, $face_h] = SCREEN_FACES[$face] ?? ['', 0, 0];
+// The faces are equally tall, so the digits are as large on every face as on the narrowest one
+$digit_scale = $face_name ? round(min(array_map(fn ($f) => $f[1] / $f[2], SCREEN_FACES)) / ($face_w / $face_h), 4) : 1;
 $data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
 header('Cache-Control: no-store'); // a stored copy would carry an old clock and state
 ?>
@@ -51,7 +53,7 @@ header('Cache-Control: no-store'); // a stored copy would carry an old clock and
 <link rel="stylesheet" href="<?= asset('css/screen.css') ?>">
 </head>
 <body class="screen-page" style="background: <?= e($data['bg']) ?>">
-<div class="screen" data-screen data-ribbon="<?= $ribbon ?>"<?php if ($face_name): ?> data-face="<?= e($face_name) ?>"<?php endif; ?> data-reveal="<?= e(reveal_url($face)) ?>" data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?><?= $face_name ? '; --ratio: ' . round($face_w / $face_h, 4) : '' ?>"></div>
+<div class="screen" data-screen data-ribbon="<?= $ribbon ?>"<?php if ($face_name): ?> data-face="<?= e($face_name) ?>" data-digit-scale="<?= $digit_scale ?>"<?php endif; ?> data-reveal="<?= e(reveal_url($face)) ?>" data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?><?= $face_name ? '; --ratio: ' . round($face_w / $face_h, 4) : '' ?>"></div>
 <script type="application/json" id="screen-data"><?= json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <script src="<?= asset('js/timer.js') ?>" defer></script>
 <script src="<?= asset('js/screen.js') ?>" defer></script>

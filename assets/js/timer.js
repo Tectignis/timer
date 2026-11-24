@@ -315,13 +315,17 @@
     if (!still) addShine(box);
   }
 
-  // Fills a face with the gold look: the ribbon, and above it the digits or a message
-  function drawGold(face, c, hourDigits, w, h, still) {
+  // Fills a face with the gold look: the ribbon, and above it the digits or a message. On a wider face of the
+  // monolith the digits are laid out as on the narrowest one (digitScale of its width, data-digit-scale from
+  // screen.php), so they are as large and as high up on every face.
+  function drawGold(face, c, hourDigits, w, h, still, digitScale) {
     var g = goldScene(w, h);
     var scene = '<div class="scene' + (g.size < w - 1 ? ' is-inset' : '') + '" style="font-size:' + g.size + 'px;top:' + g.top +
       'px;left:' + g.left + 'px"><div class="scene__ribbon"></div>';
     if (c.kind === 'clock') {
-      face.innerHTML = scene + '<div class="scene__time">' + clockHtml('line', c.groups) + '</div></div>';
+      var d = goldScene(w * digitScale, h);
+      face.innerHTML = scene + '<div class="scene__time" style="font-size:' + d.size + 'px;top:' + (d.top - g.top) + 'px;left:' +
+        ((w - w * digitScale) / 2 + d.left - g.left) + 'px">' + clockHtml('line', c.groups) + '</div></div>';
       var clock = face.querySelector('.clock');
       clock.style.fontSize = Math.min(G_SIZE, 0.94 / ((hourDigits + 4) * G_DIGIT + 2 * G_SEP)) + 'em';
       seatDigits(clock);
@@ -448,6 +452,7 @@
     var faces = s.faces || 1;
     var gold = s.look === 'gold';
     var still = el.getAttribute('data-ribbon') === 'static';
+    var digitScale = parseFloat(el.getAttribute('data-digit-scale')) || 1;
     el.style.setProperty('--fg', s.fg);
     el.style.setProperty('--bg', s.bg);
     el.classList.toggle('is-gold', gold);
@@ -474,7 +479,7 @@
         if (c.kind === 'video') {
           showReveal(face, r);
         } else if (gold && c.kind !== 'blank') {
-          drawGold(face, c, hourDigits, w, h, still);
+          drawGold(face, c, hourDigits, w, h, still, digitScale);
         } else if (c.kind === 'clock') {
           face.innerHTML = clockHtml(layout, c.groups);
           face.firstChild.style.fontSize = clockSize(layout, hourDigits, w, h) + 'px';
