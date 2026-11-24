@@ -143,14 +143,18 @@ $now = $data['now'];
 $left = timer_left($state, $now);
 $running = $state['status'] === 'running' && $left > 0;
 $link = SITE_URL . '/screen.php?key=' . setting('screen_key');
-$links = ['Video link' => $link . '&ribbon=video', 'Static link' => $link . '&ribbon=static']; // moving or still ribbon
+$links = []; // per face of the monolith, with a moving or a still ribbon
+foreach (SCREEN_FACES as $face => [$face_name]) {
+    $links[$face_name . ' video link'] = $link . '&face=' . $face . '&ribbon=video';
+    $links[$face_name . ' static link'] = $link . '&face=' . $face . '&ribbon=static';
+}
 $d = (int) $state['duration'];
 
 $page = 'index';
 $title = 'Control room';
 $with_screen_css = true;
 $extra_scripts = ['js/timer.js', 'js/control.js'];
-$actions = '<a class="btn btn--ghost btn--sm" href="' . e($links['Video link']) . '" target="_blank" rel="noopener">Open screen ↗</a>';
+$actions = '<a class="btn btn--ghost btn--sm" href="' . e(reset($links)) . '" target="_blank" rel="noopener">Open screen ↗</a>';
 include __DIR__ . '/includes/header.php';
 ?>
 <div class="cr" data-control data-status="<?= e($state['status']) ?>" data-poll="<?= e(url('admin/index.php?poll=1')) ?>">
@@ -324,7 +328,7 @@ include __DIR__ . '/includes/header.php';
                 </div>
             <?php endforeach; ?>
         </div>
-        <p class="muted small mt-sm">The video link moves light along the gold ribbon, the static link keeps it still. Open one in Chrome on the computer that feeds the LED screen, then press F11 or double-click for full screen. Add <code>&amp;name=Pillar</code> to the end of a link to name a screen.</p>
+        <p class="muted small mt-sm">Sides links keep the shape of a 1500 × 3000 side, front and back links that of the 2000 × 3000 front and back. In a window of another shape the face sits in the middle. Video links move light along the gold ribbon, static links keep it still. Open one in Chrome on the computer that feeds that face, then press F11 or double-click for full screen. Add <code>&amp;name=Left</code> to the end of a link to name a screen.</p>
         <form method="post" class="mt-sm" data-confirm="Make new links? Screens on the old links go blank until you open the new ones." data-confirm-ok="Make new links">
             <?= csrf_field() ?>
             <button class="btn btn--ghost btn--sm" name="do" value="new_key">Make new links</button>

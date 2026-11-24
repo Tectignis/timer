@@ -12,6 +12,11 @@ const TIMER_MAX = 999 * 3600 + 59 * 60 + 59; // 999:59:59
 const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
 const TIMER_LOOKS = ['gold', 'plain'];
 const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
+// The monolith's faces (mm, width × height), each with its own screen link (screen.php?…&face=side)
+const SCREEN_FACES = [
+    'side'  => ['Sides', 1500, 3000],
+    'front' => ['Front and back', 2000, 3000],
+];
 
 function timer_now()
 {
