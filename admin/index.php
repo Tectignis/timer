@@ -323,9 +323,7 @@ include __DIR__ . '/includes/header.php';
             <h2>Screens</h2>
             <button class="btn btn--ghost btn--sm" form="cr" name="do" value="reload"><?= cr_icon('reload') ?>Reload screens</button>
         </div>
-        <div data-cr-region="screens"><?= $data['html']['screens'] ?></div>
-
-        <div class="stack mt">
+        <div class="stack">
             <?php foreach ($links as $label => $href): ?>
                 <div>
                     <h3 class="label"><?= $label ?></h3>
@@ -342,6 +340,7 @@ include __DIR__ . '/includes/header.php';
             <?= csrf_field() ?>
             <button class="btn btn--ghost btn--sm" name="do" value="new_key">Make new links</button>
         </form>
+        <div class="mt" data-cr-region="screens"><?= $data['html']['screens'] ?></div>
     </section>
 </div>
 <?php include __DIR__ . '/includes/footer.php'; ?>
