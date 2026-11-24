@@ -20,6 +20,13 @@
     return id;
   })();
 
+  // A face of the monolith is laid out in its own shape and stretched to fill the window (assets/css/screen.css)
+  function stretch() {
+    if (!el.hasAttribute('data-face') || !el.offsetWidth || !el.offsetHeight) return;
+    el.style.setProperty('--sx', (window.innerWidth / el.offsetWidth).toFixed(4));
+    el.style.setProperty('--sy', (window.innerHeight / el.offsetHeight).toFixed(4));
+  }
+
   // Draws the screen, then again the moment the next second is due (at least once a second). Also called whenever
   // the clock is corrected, so the next second still lands on time.
   var drawTimer = null;
@@ -102,9 +109,10 @@
     if (!current || current.done) restart();
   }
 
+  stretch();
   draw();
   poll();
-  window.addEventListener('resize', draw);
+  window.addEventListener('resize', function () { stretch(); C.refit(el); draw(); });
   window.addEventListener('online', restart);
   document.addEventListener('visibilitychange', wake);
   document.addEventListener('resume', wake); // the browser froze the page in the background and let it go again

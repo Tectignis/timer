@@ -155,10 +155,13 @@ html:has(.screen-page), .screen-page { height: 100%; }
   background: #000;
 }
 .screen-page .screen { position: fixed; inset: 0; width: auto; height: auto; }
-/* A face of the monolith (&face=…): its shape (--ratio, width / height) as large as fits, in the middle */
+/* A face of the monolith (&face=…): laid out in its own shape (--ratio, width / height), then stretched to fill the
+   window (--sx, --sy from assets/js/screen.js). The LED squeezes the computer's whole picture onto the face, which
+   brings it back to the right shape. */
 .screen-page .screen[data-face] {
   width: min(100vw, 100vh * var(--ratio));
   height: min(100vh, 100vw / var(--ratio));
   margin: auto;
+  transform: scale(var(--sx, 1), var(--sy, 1));
 }
 .screen-page.is-idle, .screen-page.is-idle * { cursor: none; }

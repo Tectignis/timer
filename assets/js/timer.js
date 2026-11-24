@@ -207,15 +207,22 @@
   }
 
   function ribbonCanvas(box) {
-    var dpr = window.devicePixelRatio || 1;
     var canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(box.clientWidth * dpr));
-    canvas.height = Math.max(1, Math.round(box.clientHeight * dpr));
+    sizeCanvas(canvas, box);
     var ctx = canvas.getContext('2d');
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(ribbon.art, 0, 0, canvas.width, canvas.height);
     box.insertBefore(canvas, box.firstChild); // under the moving light
     box.classList.add('is-drawn');
+  }
+
+  // Gives a canvas as many pixels as `box` takes up on the screen, also when the screen is stretched (a face of the
+  // monolith, see assets/css/screen.css), so the ribbon stays sharp
+  function sizeCanvas(canvas, box) {
+    var r = box.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(r.width * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
   }
 
   // The ribbon's moving light: assets/brand/ribbon.webm, a 15 second loop of the ribbon on a transparent background.
@@ -226,12 +233,10 @@
 
   function addShine(box) {
     if (shine.failed || !shine.src) return;
-    var dpr = window.devicePixelRatio || 1;
     var canvas = document.createElement('canvas');
     canvas.className = 'scene__shine';
     box.appendChild(canvas);
-    canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr));
-    canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    sizeCanvas(canvas, canvas);
     shine.canvases.push(canvas);
     if (shine.ok) drawShine(canvas);
     playShine();
