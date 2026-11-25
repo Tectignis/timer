@@ -45,6 +45,18 @@
     el.style.setProperty('--sy', (h / Math.min(h, w / ratio)).toFixed(4));
   }
 
+  // The screen's size as laid out, for the control room's preview: a face of the monolith in its own shape, also
+  // while the reveal video covers the window
+  function size() {
+    var w = el.clientWidth;
+    var h = el.clientHeight;
+    if (el.hasAttribute('data-face') && ratio > 0) {
+      w = Math.min(window.innerWidth, window.innerHeight * ratio);
+      h = Math.min(window.innerHeight, window.innerWidth / ratio);
+    }
+    return Math.round(w) + 'x' + Math.round(h);
+  }
+
   // Draws the screen, then again the moment the next second or the reveal video is due (at least once a second).
   // Also called whenever the clock is corrected, so the next second still lands on time.
   var drawTimer = null;
@@ -81,7 +93,7 @@
     var url = '';
     var next = 0;
     var params = '&state=1&screen=' + screenId + '&etag=' + (data.etag || '') + (wait ? '&wait=1' : '') +
-      '&size=' + el.clientWidth + 'x' + el.clientHeight + (name ? '&name=' + encodeURIComponent(name) : '');
+      '&size=' + size() + (name ?'&name=' + encodeURIComponent(name) : '');
     // stop waiting for an answer that will never come (e.g. the network dropped halfway)
     var giveUp = setTimeout(function () { if (me.ctrl) me.ctrl.abort(); }, wait ? 30000 : 10000);
     fetch(feed + params, { cache: 'no-store', signal: me.ctrl ? me.ctrl.signal : undefined })
