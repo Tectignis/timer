@@ -391,6 +391,7 @@
   var SIM_FROM = 5;
   var sim = null; // the simulated timer while it plays
   var simTimer = null;
+  var warm = null; // a video loading the reveal ahead, so the simulation's video starts the moment it is due
 
   // The timer as it stands before the simulation plays
   function simSettings() {
@@ -413,18 +414,18 @@
   simPlay.addEventListener('click', function () {
     var s = simSettings();
     var src = data.video ? data.video.url : '';
-    simPlay.classList.add('is-busy');
-    simLabel.textContent = 'Loading the video…';
-    (s.end_show === 'video' && src ? C.preload(src) : Promise.resolve(true)).then(function (ok) {
-      simPlay.classList.remove('is-busy');
-      simLabel.textContent = 'Play again';
-      if (!ok) A.toast('The video could not be loaded, so the simulation holds 00:00:00.', true);
-      s.status = 'running';
-      s.ends_at = C.mono() + SIM_FROM;
-      sim = s;
-      simStop.hidden = false;
-      simDraw();
-    });
+    if (s.end_show === 'video' && src && (!warm || warm.getAttribute('src') !== src)) {
+      warm = document.createElement('video'); // the browser shares what it loads with the faces' videos
+      warm.muted = true;
+      warm.preload = 'auto';
+      warm.src = src;
+    }
+    s.status = 'running';
+    s.ends_at = C.mono() + SIM_FROM;
+    sim = s;
+    simLabel.textContent = 'Play again';
+    simStop.hidden = false;
+    simDraw();
   });
 
   simStop.addEventListener('click', function () {
