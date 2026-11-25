@@ -368,48 +368,61 @@
 
   /* ---- the reveal video at zero */
 
-  // The video comes from data-reveal on the .screen element (reveal_url() in includes/timer.php). It is downloaded
-  // whole beforehand, so it starts on time even on a slow network: a screen fetches it from half an hour before
-  // zero, the control room preview only when it is due and the simulation before it plays. Every screen plays it in
-  // step with the clock, looping, so all faces show the same frame. Until it has arrived, or if the browser can't
-  // play it, the screen holds 00:00:00 (a face with words keeps its words).
+  // The video comes from data-reveal on the .screen element (reveal_url() in includes/timer.php). A screen downloads
+  // it whole from half an hour before zero, so it plays smoothly even on a slow network. It never waits for that:
+  // if the copy isn't here when the video is due, it plays straight from the server at once. The control room (its
+  // preview and the simulation) always plays it from the server. Every screen plays it in step with the clock,
+  // looping, so all faces show the same frame. If the browser can't play it, the screen holds 00:00:00 (a face with
+  // words keeps its words).
   var REVEAL_EARLY = 1800;
-  var reveals = {}; // address → { src, url: the downloaded copy, failed, ready: a promise of true once downloaded }
+  var reveals = {}; // address → { src, url: the downloaded copy ('' until it is here), failed, fetching }
 
-  function reveal(src) {
+  // download: fetch a copy to play from (screens), otherwise it is only played from the server
+  function reveal(src, download) {
     var r = reveals[src];
-    if (r) return r;
-    Object.keys(reveals).forEach(function (old) { // a new video took the old one's place: let its copy go
-      if (reveals[old].url && reveals[old].url !== old) URL.revokeObjectURL(reveals[old].url);
-      delete reveals[old];
-    });
-    r = reveals[src] = { src: src, url: '', failed: false };
-    r.ready = fetch(src)
-      .then(function (res) {
-        if (!res.ok) throw new Error(res.status);
-        return res.blob();
-      })
-      .then(function (b) {
-        r.url = URL.createObjectURL(b);
-        return true;
-      })
-      .catch(function () {
-        setTimeout(function () { if (reveals[src] === r) delete reveals[src]; }, 30000); // try again in a while
-        return false;
+    if (!r) {
+      Object.keys(reveals).forEach(function (old) { // a new video took the old one's place: let its copy go
+        if (reveals[old].url) URL.revokeObjectURL(reveals[old].url);
+        delete reveals[old];
       });
+      r = reveals[src] = { src: src, url: '', failed: false, fetching: false };
+    }
+    if (download && !r.fetching && !r.url) {
+      r.fetching = true;
+      fetch(src)
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.status);
+          return res.blob();
+        })
+        .then(function (b) { if (reveals[src] === r) r.url = URL.createObjectURL(b); })
+        .catch(function () { setTimeout(function () { r.fetching = false; }, 30000); }); // try again in a while
+    }
     return r;
   }
 
+  // The downloaded copy when it is here, otherwise straight from the server. What the face showed stays until the
+  // video's first frame is here, so the face never goes blank meanwhile.
   function showReveal(face, r) {
-    face.innerHTML = '<video class="reveal" muted loop playsinline></video>';
-    var v = face.firstChild;
+    var v = document.createElement('video');
+    v.className = 'reveal';
     v.muted = true; // the attribute alone doesn't let every browser play it on its own
-    v.addEventListener('error', function () { // the copy won't play: stream it from the server, then give up
-      if (r.url === r.src) r.failed = true;
-      else v.src = r.url = r.src;
+    v.loop = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    var copy = r.url;
+    v.addEventListener('loadeddata', function () {
+      v.classList.add('is-shown');
+      Array.prototype.slice.call(face.children).forEach(function (n) { if (n !== v) face.removeChild(n); });
+    }, { once: true });
+    v.addEventListener('error', function () { // the copy won't play: play it from the server, then give up
+      if (!copy) return (r.failed = true);
+      URL.revokeObjectURL(r.url);
+      r.url = copy = '';
+      v.src = r.src;
     });
     v.addEventListener('loadedmetadata', function () { keepReveal(v); });
-    v.src = r.url;
+    v.src = copy || r.src;
+    face.appendChild(v);
   }
 
   // since: seconds since zero at this moment (null: just play)
@@ -546,11 +559,12 @@
     var words = wordsOf(el);
     var c = content(s, now, words);
     var src = el.getAttribute('data-reveal');
+    var screen = el.hasAttribute('data-screen');
     var r = null;
-    if (src && (c.kind === 'video' || s.end_show === 'video' && el.hasAttribute('data-screen') && left(s, now) < REVEAL_EARLY)) {
-      r = reveal(src);
+    if (src && (c.kind === 'video' || s.end_show === 'video' && screen && left(s, now) < REVEAL_EARLY)) {
+      r = reveal(src, screen);
     }
-    if (c.kind === 'video' && !(r && r.url && !r.failed)) c = words ? { kind: 'words' } : { kind: 'clock', groups: groups(0), ended: true };
+    if (c.kind === 'video' && !(r && !r.failed)) c = words ? { kind: 'words' } : { kind: 'clock', groups: groups(0), ended: true };
     var faces = words ? 1 : s.faces || 1;
     var gold = s.look === 'gold';
     var still = el.getAttribute('data-ribbon') === 'static';
@@ -571,7 +585,7 @@
     var h = el.clientHeight;
     var hourDigits = c.kind === 'clock' ? c.groups[0].length : 0;
     var layout = c.kind === 'clock' ? (gold ? 'line' : pickLayout(s.layout, hourDigits, w, h)) : '';
-    var key = [s.look, c.kind, layout, hourDigits, c.text || '', c.kind === 'video' ? r.url : '', faces, Math.round(w), Math.round(h)].join('|');
+    var key = [s.look, c.kind, layout, hourDigits, c.text || '', c.kind === 'video' ? r.src : '', faces, Math.round(w), Math.round(h)].join('|');
     var digits = c.kind === 'clock' ? c.groups.join('') : '';
 
     if (el._key !== key) {
@@ -611,8 +625,5 @@
   // Forget the layout so the next render rebuilds (e.g. once the font has loaded)
   function refit(el) { el._key = null; }
 
-  // Downloads the reveal video ahead (e.g. for the control room's simulation): a promise of true once it is here
-  function preload(src) { return reveal(src).ready; }
-
-  window.Countdown = { Clock: Clock, mono: mono, left: left, untilNext: untilNext, format: format, content: content, render: render, refit: refit, preload: preload };
+  window.Countdown = { Clock: Clock, mono: mono, left: left, untilNext: untilNext, format: format, content: content, render: render, refit: refit };
 })();

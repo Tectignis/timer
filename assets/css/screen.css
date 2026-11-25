@@ -136,8 +136,10 @@
 /* The gold only paints inside the box: reach past the line so the round digits' bottoms are never cut off */
 .is-gold .clock__g { position: relative; top: calc(var(--lift) * -1em); padding: .1em 0; margin: -.1em 0; }
 
-/* The reveal video at zero: the whole picture as large as fits, on the background where the face is another shape */
-.reveal { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--bg); }
+/* The reveal video at zero: the whole picture as large as fits, on the background where the face is another shape.
+   Shown once its first frame is here (showReveal() in assets/js/timer.js). */
+.reveal { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--bg); visibility: hidden; }
+.reveal.is-shown { visibility: visible; }
 
 /* Time's up: blink a few times, then hold */
 .screen.is-ended .clock { animation: ended 1s step-end 6; }
