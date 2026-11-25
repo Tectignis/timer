@@ -411,8 +411,17 @@
   // On a screen the face is then laid out over the whole window without the stretch (is-video, see
   // assets/css/screen.css), so the browser draws the video straight onto the window.
   function showReveal(el, face, r, fit, ratio) {
+    var copy = r.url;
+    var key = function () { return [r.src, copy ? 'copy' : 'server', fit, ratio].join('|'); };
+    var boxes = face.querySelectorAll('.reveal');
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i]._key === key()) return; // on show or on its way already (e.g. the face was laid out again for a font)
+    }
+    // one still on its way for older settings is let go, so the video is never loaded several times over at once
+    Array.prototype.forEach.call(boxes, function (b) { if (!b.classList.contains('is-shown')) dropReveal(b); });
     var box = document.createElement('div');
     box.className = 'reveal';
+    box._key = key();
     var v = document.createElement('video');
     v.muted = true; // the attribute alone doesn't let every browser play it on its own
     v.loop = true;
@@ -421,18 +430,19 @@
     var soft = fit === 'soft' ? document.createElement('canvas') : null;
     if (soft) box.appendChild(soft);
     box.appendChild(v);
-    var copy = r.url;
     v.addEventListener('loadeddata', function () {
       if (box.parentNode !== face) return; // replaced meanwhile
       box.classList.add('is-shown');
-      Array.prototype.slice.call(face.children).forEach(function (n) { if (n !== box) face.removeChild(n); });
+      Array.prototype.slice.call(face.children).forEach(function (n) { if (n !== box) dropReveal(n); });
       if (el.hasAttribute('data-screen')) el.classList.add('is-video');
       if (soft) softReveal(v, soft, ratio);
     }, { once: true });
     v.addEventListener('error', function () { // the copy won't play: play it from the server, then give up
+      if (box._dropped) return;
       if (!copy) return (r.failed = true);
       URL.revokeObjectURL(r.url);
       r.url = copy = '';
+      box._key = key();
       v.src = r.src;
     });
     v.addEventListener('loadedmetadata', function () {
@@ -442,6 +452,17 @@
     v.addEventListener('canplay', function () { keepReveal(v); });
     v.src = copy || r.src;
     face.appendChild(box);
+  }
+
+  // Takes something off a face. A video is stopped loading too: taken off the page alone, it would go on loading.
+  function dropReveal(n) {
+    var v = n.querySelector && n.querySelector('video');
+    if (v) {
+      n._dropped = true;
+      v.removeAttribute('src');
+      v.load();
+    }
+    if (n.parentNode) n.parentNode.removeChild(n);
   }
 
   // Sizes and places the video in parts of the face
@@ -670,6 +691,7 @@
       el._key = key;
       el._digits = digits;
       Array.prototype.forEach.call(el.children, function (face) {
+        if (c.kind !== 'video') Array.prototype.forEach.call(face.querySelectorAll('.reveal'), dropReveal);
         if (c.kind === 'video') {
           showReveal(el, face, r, fit, ratio);
         } else if (c.kind === 'words') {
