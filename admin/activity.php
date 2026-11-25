@@ -13,6 +13,7 @@ const ACTIONS = [
     'view'       => 'Screen view',
     'message'    => 'Message',
     'display'    => 'Display',
+    'end'        => 'After the timer',
     'reload'     => 'Reloaded screens',
     'screen_key' => 'New screen link',
     'profile'    => 'Account',

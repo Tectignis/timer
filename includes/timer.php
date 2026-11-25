@@ -11,7 +11,7 @@ require_once __DIR__ . '/functions.php';
 const TIMER_MAX = 999 * 3600 + 59 * 60 + 59; // 999:59:59
 const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
 const TIMER_LOOKS = ['gold', 'plain'];
-const TIMER_END_SHOWS = ['clock', 'text', 'video'];
+const TIMER_END_SHOWS = ['video', 'clock'];
 const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
 // The monolith's faces (mm, width × height), each with its own screen link (screen.php?…&face=side)
 const SCREEN_FACES = [
@@ -44,7 +44,7 @@ function timer_clock()
 // Fills in and cleans up a stored state
 function timer_defaults($state)
 {
-    $state = array_merge([
+    $defaults = [
         'status'   => 'ready',   // ready (set, not started) | running | paused
         'duration' => 600,       // what the timer was set to; reset goes back to this
         'left'     => 600.0,     // seconds left while ready or paused
@@ -52,8 +52,7 @@ function timer_defaults($state)
         'view'     => 'timer',   // what the screen shows: timer | standby | message
         'message'  => '',
         'recent'   => [],        // last few messages, for one-tap reuse
-        'end_show' => '',        // at zero: clock (hold 00:00:00) | text (end_text) | video (the reveal video, see reveal_url())
-        'end_text' => '',        // shown at zero when end_show is text ('' = hold 00:00:00)
+        'end_show' => 'video',   // after the timer: video (the reveal video, see reveal_url()) | clock (hold 00:00:00)
         'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
         'bg'       => '#000000',
@@ -61,13 +60,15 @@ function timer_defaults($state)
         'layout'   => 'auto',    // auto | line (10:00:00) | stacked (hours, minutes, seconds on top of each other)
         'reload'   => 0,         // raised to make every screen reload itself
         'changed'  => 0.0,       // server time of the last change
-    ], is_array($state) ? $state : []);
+    ];
+    // anything stored that is no longer part of the state (such as the old text at zero) is dropped
+    $state = array_intersect_key(array_merge($defaults, is_array($state) ? $state : []), $defaults);
 
     if (!in_array($state['status'], ['ready', 'running', 'paused'], true)) $state['status'] = 'ready';
     if (!in_array($state['view'], ['timer', 'standby', 'message'], true)) $state['view'] = 'timer';
     if (!in_array($state['layout'], TIMER_LAYOUTS, true)) $state['layout'] = 'auto';
     if (!in_array($state['look'], TIMER_LOOKS, true)) $state['look'] = 'gold';
-    if (!in_array($state['end_show'], TIMER_END_SHOWS, true)) $state['end_show'] = $state['end_text'] !== '' ? 'text' : 'video';
+    if (!in_array($state['end_show'], TIMER_END_SHOWS, true)) $state['end_show'] = 'video';
     $state['duration'] = min(TIMER_MAX, max(0, (int) $state['duration']));
     $state['left'] = round(min(TIMER_MAX, max(0, (float) $state['left'])), 3); // to the millisecond
     $state['ends_at'] = round((float) $state['ends_at'], 3);
@@ -158,7 +159,7 @@ function reveal_url($face = '')
 function timer_screen_payload($state = null)
 {
     $data = array_intersect_key($state ?? timer_state(), array_flip([
-        'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'end_text', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
+        'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
     ]));
     return ['etag' => md5(json_encode($data))] + $data;
 }

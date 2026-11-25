@@ -111,9 +111,13 @@ if (is_post()) {
                     log_activity('message', 'Showed a message: ' . $text);
                     return 'Your message is on screen.';
 
+                case 'end': // what the screens show after the timer
+                    if (!in_array(post('end_show'), TIMER_END_SHOWS, true)) return $error = 'Unknown action.';
+                    $s['end_show'] = post('end_show');
+                    log_activity('end', $s['end_show'] === 'video' ? 'Reveal video at zero' : 'Hold 00:00:00 at zero');
+                    return 'Saved.';
+
                 case 'display':
-                    if (in_array(post('end_show'), TIMER_END_SHOWS, true)) $s['end_show'] = post('end_show');
-                    $s['end_text'] = mb_substr(trim(preg_replace('/\s+/u', ' ', post('end_text'))), 0, 120);
                     if (in_array(post('look'), TIMER_LOOKS, true)) $s['look'] = post('look');
                     $s['fg'] = timer_color(post('fg'), $s['fg']);
                     $s['bg'] = timer_color(post('bg'), $s['bg']);
@@ -273,17 +277,6 @@ include __DIR__ . '/includes/header.php';
             <form method="post" class="stack" data-cr-form data-cr-display>
                 <?= csrf_field() ?>
                 <div class="field">
-                    <span>At zero, show</span>
-                    <div class="seg seg--radio">
-                        <?php foreach (['clock' => '00:00:00', 'text' => 'Text', 'video' => 'Reveal video'] as $value => $label): ?>
-                            <label><input type="radio" name="end_show" value="<?= $value ?>" <?= $state['end_show'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <label class="field" data-end-text><span>Text at zero</span>
-                    <input name="end_text" maxlength="120" placeholder="e.g. We are live" value="<?= e($state['end_text']) ?>">
-                </label>
-                <div class="field">
                     <span>Look</span>
                     <div class="seg seg--radio">
                         <?php foreach (['gold' => 'Gold ribbon', 'plain' => 'Plain'] as $value => $label): ?>
@@ -317,6 +310,24 @@ include __DIR__ . '/includes/header.php';
             </form>
         </section>
     </div>
+
+    <section class="panel" id="after">
+        <h2>After the timer</h2>
+        <form method="post" class="stack" data-cr-form data-cr-end>
+            <?= csrf_field() ?>
+            <div class="field">
+                <span>At zero, show</span>
+                <div class="seg seg--radio">
+                    <?php foreach (['video' => 'Reveal video', 'clock' => '00:00:00'] as $value => $label): ?>
+                        <label><input type="radio" name="end_show" value="<?= $value ?>" <?= $state['end_show'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="row-actions">
+                <button class="btn btn--primary" name="do" value="end">Save</button>
+            </div>
+        </form>
+    </section>
 
     <section class="panel" id="screens">
         <div class="panel__head">

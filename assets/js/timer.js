@@ -144,7 +144,6 @@
     if (s.view === 'message') return { kind: 'text', text: s.message };
     var l = left(s, now);
     if (l <= 0 && s.end_show === 'video') return { kind: 'video', since: s.status === 'running' ? now - s.ends_at : null, ended: true };
-    if (l <= 0 && s.end_show !== 'clock' && s.end_text) return { kind: 'text', text: s.end_text, ended: true };
     return { kind: 'clock', groups: groups(l), ended: l <= 0 };
   }
 
