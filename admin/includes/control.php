@@ -39,6 +39,15 @@ function cr_recent_html($state)
     return $html;
 }
 
+// The reveal video for the After the timer card: its address, the name it was added with and its size. null when
+// there is none.
+function cr_video($state)
+{
+    $url = reveal_url();
+    if ($url === '') return null;
+    return ['url' => $url, 'name' => $state['video']['name'] ?? 'reveal.mp4', 'size' => filesize(REVEAL_FILE)];
+}
+
 // Everything the control room shows. The etag lets the page skip redraws when nothing changed.
 function cr_payload()
 {
@@ -47,6 +56,7 @@ function cr_payload()
     $online = array_values(array_filter($list, fn ($s) => $s['online']));
     $data = [
         'state'  => $state,
+        'video'  => cr_video($state),
         'online' => count($online),
         'size'   => $online[0]['size'] ?? ($list[0]['size'] ?? ''), // aspect ratio for the preview
         'html'   => ['screens' => cr_screens_html($list), 'recent' => cr_recent_html($state)],

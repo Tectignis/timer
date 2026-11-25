@@ -47,6 +47,7 @@
     clearTimeout(drawTimer);
     var t = clock.now();
     document.body.style.background = data.bg;
+    if ('reveal' in data) el.setAttribute('data-reveal', data.reveal); // a new video from the control room
     C.render(el, data, t);
     drawTimer = setTimeout(draw, Math.min(1000, C.untilNext(data, t) * 1000 + 2));
     if (clock.jumped()) restart(); // the computer slept or its time was changed

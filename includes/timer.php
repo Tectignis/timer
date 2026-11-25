@@ -13,6 +13,9 @@ const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
 const TIMER_LOOKS = ['gold', 'plain'];
 const TIMER_END_SHOWS = ['video', 'clock'];
 const TIMER_END_DELAY = 60; // most seconds the screens hold 00:00:00 before the reveal video starts
+// The reveal video played at zero on every face. Not in the repo: changed from the control room (admin/video.php).
+const REVEAL_FILE = __DIR__ . '/../assets/brand/reveal.mp4';
+const REVEAL_MAX = 300 * 1024 * 1024; // largest video that can be added: every screen downloads it whole
 const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
 // The monolith's faces (mm, width × height), each with its own screen link (screen.php?…&face=side)
 const SCREEN_FACES = [
@@ -55,6 +58,7 @@ function timer_defaults($state)
         'recent'   => [],        // last few messages, for one-tap reuse
         'end_show' => 'video',   // after the timer: video (the reveal video, see reveal_url()) | clock (hold 00:00:00)
         'end_delay' => 3,        // seconds the screens hold 00:00:00 before the video starts
+        'video'    => [],        // the reveal video added from the control room: name (as uploaded), size, at (unix time)
         'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
         'bg'       => '#000000',
@@ -76,6 +80,9 @@ function timer_defaults($state)
     $state['ends_at'] = round((float) $state['ends_at'], 3);
     $state['faces'] = min(4, max(1, (int) $state['faces']));
     $state['end_delay'] = min(TIMER_END_DELAY, max(0, (int) $state['end_delay']));
+    $state['video'] = is_array($state['video']) && isset($state['video']['name'], $state['video']['size'], $state['video']['at'])
+        ? ['name' => mb_substr((string) $state['video']['name'], 0, 120), 'size' => (int) $state['video']['size'], 'at' => (float) $state['video']['at']]
+        : [];
     $state['fg'] = timer_color($state['fg'], '#ffffff');
     $state['bg'] = timer_color($state['bg'], '#000000');
     $state['recent'] = array_slice(array_values(array_filter((array) $state['recent'], 'is_string')), 0, 5);
@@ -148,22 +155,20 @@ function timer_change(callable $change, $at = 0)
     return $result;
 }
 
-// The reveal video played at zero: assets/brand/reveal-side.mp4 (or -front) made for that face of the monolith,
-// otherwise assets/brand/reveal.mp4. '' when there is none. Not in the repo, like the other brand files.
-function reveal_url($face = '')
+// The reveal video's address, '' when there is none. It changes with the file, so screens fetch a new video afresh.
+function reveal_url()
 {
-    foreach (isset(SCREEN_FACES[$face]) ? ["reveal-$face.mp4", 'reveal.mp4'] : ['reveal.mp4'] as $file) {
-        if (is_file(__DIR__ . '/../assets/brand/' . $file)) return asset('brand/' . $file);
-    }
-    return '';
+    clearstatcache(true, REVEAL_FILE); // a held check-in must see a video changed meanwhile
+    return is_file(REVEAL_FILE) ? asset('brand/reveal.mp4') : '';
 }
 
-// What a screen needs. The etag lets screens skip downloads when nothing changed.
+// What a screen needs. The etag lets screens skip downloads when nothing changed. A new video changes the state
+// (`video`), so screens waiting for a change get its address at once.
 function timer_screen_payload($state = null)
 {
     $data = array_intersect_key($state ?? timer_state(), array_flip([
         'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'end_delay', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
-    ]));
+    ])) + ['reveal' => reveal_url()];
     return ['etag' => md5(json_encode($data))] + $data;
 }
 

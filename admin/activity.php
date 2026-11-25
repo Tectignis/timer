@@ -14,6 +14,7 @@ const ACTIONS = [
     'message'    => 'Message',
     'display'    => 'Display',
     'end'        => 'After the timer',
+    'video'      => 'Reveal video',
     'reload'     => 'Reloaded screens',
     'screen_key' => 'New screen link',
     'profile'    => 'Account',

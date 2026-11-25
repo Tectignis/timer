@@ -374,19 +374,29 @@
   // looping, so all faces show the same frame. Until it has arrived, or if the browser can't play it, the screen
   // holds 00:00:00.
   var REVEAL_EARLY = 1800;
-  var reveals = {}; // address → { src, url: the downloaded copy, failed }
+  var reveals = {}; // address → { src, url: the downloaded copy, failed, ready: a promise of true once downloaded }
 
   function reveal(src) {
     var r = reveals[src];
     if (r) return r;
+    Object.keys(reveals).forEach(function (old) { // a new video took the old one's place: let its copy go
+      if (reveals[old].url && reveals[old].url !== old) URL.revokeObjectURL(reveals[old].url);
+      delete reveals[old];
+    });
     r = reveals[src] = { src: src, url: '', failed: false };
-    fetch(src)
+    r.ready = fetch(src)
       .then(function (res) {
         if (!res.ok) throw new Error(res.status);
         return res.blob();
       })
-      .then(function (b) { r.url = URL.createObjectURL(b); })
-      .catch(function () { setTimeout(function () { delete reveals[src]; }, 30000); }); // try again in a while
+      .then(function (b) {
+        r.url = URL.createObjectURL(b);
+        return true;
+      })
+      .catch(function () {
+        setTimeout(function () { if (reveals[src] === r) delete reveals[src]; }, 30000); // try again in a while
+        return false;
+      });
     return r;
   }
 
@@ -561,7 +571,7 @@
     var h = el.clientHeight;
     var hourDigits = c.kind === 'clock' ? c.groups[0].length : 0;
     var layout = c.kind === 'clock' ? (gold ? 'line' : pickLayout(s.layout, hourDigits, w, h)) : '';
-    var key = [s.look, c.kind, layout, hourDigits, c.text || '', faces, Math.round(w), Math.round(h)].join('|');
+    var key = [s.look, c.kind, layout, hourDigits, c.text || '', c.kind === 'video' ? r.url : '', faces, Math.round(w), Math.round(h)].join('|');
     var digits = c.kind === 'clock' ? c.groups.join('') : '';
 
     if (el._key !== key) {

@@ -278,6 +278,26 @@ kbd {
 .field .suffix input { width: 92px; }
 .suffix > span { color: var(--muted); font-weight: 400; font-size: 14px; }
 
+/* The reveal video: its details and the button that changes it */
+.video-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #FAF9F6;
+}
+.video-file__info { display: grid; flex: 1; min-width: 0; }
+.video-file__info strong { overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
+.video-file__change { position: relative; }
+.video-file__change input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.video-file__change:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.is-uploading .video-file__change { opacity: .6; pointer-events: none; }
+.progress { height: 6px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: var(--soft); }
+.progress span { display: block; width: 0; height: 100%; background: var(--ink); transition: width .2s; }
+
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

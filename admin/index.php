@@ -171,7 +171,7 @@ include __DIR__ . '/includes/header.php';
     <section class="panel stage" aria-label="Timer controls">
         <div class="stage__preview">
             <div class="preview" data-cr-preview>
-                <div class="screen" data-cr-screen data-reveal="<?= e(reveal_url()) ?>"></div>
+                <div class="screen" data-cr-screen data-reveal="<?= e($data['video']['url'] ?? '') ?>"></div>
             </div>
         </div>
 
@@ -334,6 +334,21 @@ include __DIR__ . '/includes/header.php';
                 <button class="btn btn--primary" name="do" value="end">Save</button>
             </div>
         </form>
+        <?php $video = $data['video']; ?>
+        <div class="field mt" data-video data-upload="<?= e(url('admin/video.php')) ?>" data-max="<?= REVEAL_MAX ?>">
+            <span>Video</span>
+            <div class="video-file">
+                <div class="video-file__info">
+                    <strong data-video-name><?= e($video ? $video['name'] : 'No video yet') ?></strong>
+                    <span class="muted small" data-video-meta><?= $video ? number_format($video['size'] / 1048576, 1) . ' MB' : 'Screens hold 00:00:00 at zero until one is added.' ?></span>
+                </div>
+                <label class="btn btn--ghost btn--sm video-file__change">
+                    <span data-video-change><?= $video ? 'Change video' : 'Add video' ?></span>
+                    <input type="file" accept="video/mp4,.mp4" data-video-input>
+                </label>
+            </div>
+            <div class="progress" data-video-progress hidden><span></span></div>
+        </div>
     </section>
 
     <section class="panel" id="screens">

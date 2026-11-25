@@ -67,6 +67,7 @@
     var m = /^(\d+)x(\d+)$/.exec(d.size || '');
     ratio = m ? m[1] / m[2] : 16 / 9;
     sizePreview();
+    showVideo(d.video);
     tick();
   }
 
@@ -245,6 +246,137 @@
     document.getElementById('message').scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(function () { messageBox.focus({ preventScroll: true }); }, 300);
   });
+
+  /* ---- after the timer: the reveal video */
+  var videoBox = $('[data-video]');
+  var videoInput = $('[data-video-input]');
+  var videoChange = $('[data-video-change]');
+  var shownVideo; // the address of the video the card shows
+  var uploading = false;
+  var PIECE = 8 * 1048576; // the video is sent in pieces this large (admin/video.php)
+
+  function mb(bytes) { return (bytes / 1048576).toFixed(1) + ' MB'; }
+
+  // The video's name, size, shape and length in the card, and the video the preview plays at zero
+  function showVideo(v) {
+    var url = v ? v.url : '';
+    screenEl.setAttribute('data-reveal', url);
+    if (url === shownVideo) return;
+    shownVideo = url;
+    $('[data-video-name]').textContent = v ? v.name : 'No video yet';
+    if (!uploading) videoChange.textContent = v ? 'Change video' : 'Add video';
+    var meta = $('[data-video-meta]');
+    meta.textContent = v ? mb(v.size) : 'Screens hold 00:00:00 at zero until one is added.';
+    if (v) {
+      probe(url).then(function (m) {
+        if (m && shownVideo === url) meta.textContent = mb(v.size) + ' · ' + m.width + ' × ' + m.height + ' · ' + m.seconds.toFixed(1) + ' s';
+      });
+    }
+  }
+
+  // The video's shape and length, as the browser reads them: null when the browser can't play it
+  function probe(src) {
+    return new Promise(function (resolve) {
+      var v = document.createElement('video');
+      var done = function (m) {
+        v.removeAttribute('src');
+        v.load();
+        resolve(m);
+      };
+      v.muted = true;
+      v.preload = 'metadata';
+      v.addEventListener('loadedmetadata', function () {
+        done(v.videoWidth > 0 && v.duration > 0 ? { width: v.videoWidth, height: v.videoHeight, seconds: v.duration } : null);
+      }, { once: true });
+      v.addEventListener('error', function () { done(null); }, { once: true });
+      v.src = src;
+    });
+  }
+
+  videoInput.addEventListener('change', function () {
+    var file = videoInput.files[0];
+    videoInput.value = '';
+    if (!file || uploading) return;
+    var max = +videoBox.getAttribute('data-max');
+    if (!/\.mp4$/i.test(file.name) && file.type !== 'video/mp4') return A.toast('Choose an MP4 video.', true);
+    if (file.size > max) return A.toast('That video is larger than ' + Math.round(max / 1048576) + ' MB.', true);
+    var local = URL.createObjectURL(file);
+    probe(local).then(function (m) {
+      URL.revokeObjectURL(local);
+      if (!m) return A.toast('This video does not play in the browser. Save it as an MP4 (H.264) and try again.', true);
+      return A.confirm('Play “' + file.name + '” after the timer? It takes the place of the current video on every screen.', 'Change video')
+        .then(function (ok) { if (ok) upload(file); });
+    });
+  });
+
+  // Sends the video in pieces, each tried again a few times if the network drops
+  function upload(file) {
+    uploading = true;
+    videoInput.disabled = true;
+    videoBox.classList.add('is-uploading');
+    var bar = $('[data-video-progress]');
+    bar.hidden = false;
+    var bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    var id = Array.prototype.map.call(bytes, function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('');
+    var offset = 0;
+    var tries = 0;
+
+    function progress(sent) {
+      var pct = Math.min(100, sent / file.size * 100);
+      bar.firstChild.style.width = pct.toFixed(1) + '%';
+      videoChange.textContent = 'Uploading ' + Math.floor(pct) + '%';
+    }
+
+    function finish(error, ok) {
+      uploading = false;
+      videoInput.disabled = false;
+      videoBox.classList.remove('is-uploading');
+      bar.hidden = true;
+      bar.firstChild.style.width = '0';
+      videoChange.textContent = data.video ? 'Change video' : 'Add video';
+      A.toast(error || ok, !!error);
+    }
+
+    function next() {
+      var piece = file.slice(offset, offset + PIECE);
+      var body = new FormData();
+      body.append('csrf', csrf);
+      body.append('id', id);
+      body.append('offset', offset);
+      body.append('size', file.size);
+      body.append('name', file.name);
+      body.append('piece', piece, 'piece');
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', videoBox.getAttribute('data-upload'));
+      xhr.setRequestHeader('X-Requested-With', 'fetch');
+      xhr.responseType = 'json';
+      xhr.timeout = 120000;
+      xhr.upload.onprogress = function (e) { progress(offset + Math.min(e.loaded, piece.size)); };
+      xhr.onload = function () {
+        var d = xhr.response || {};
+        if (d.signed_out) {
+          finish(d.error);
+          return signedOut(d.error);
+        }
+        if (xhr.status !== 200 || !d.ok) return finish(d.toast || d.error || 'The video could not be uploaded.');
+        tries = 0;
+        offset += piece.size;
+        progress(offset);
+        if (offset < file.size) return next();
+        actions++; // a check that left before this must not undo it
+        apply(d);
+        finish(null, d.toast);
+      };
+      xhr.onerror = xhr.ontimeout = function () {
+        if (++tries <= 3) return setTimeout(next, 1000 * tries);
+        finish('Could not reach the server. Check your connection and try again.');
+      };
+      xhr.send(body);
+    }
+    progress(0);
+    next();
+  }
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
