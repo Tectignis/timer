@@ -67,7 +67,7 @@
     var m = /^(\d+)x(\d+)$/.exec(d.size || '');
     ratio = m ? m[1] / m[2] : 16 / 9;
     sizePreview();
-    showVideo(d.video);
+    showVideos(d.videos);
     tick();
     if (!sim) simDraw(); // e.g. a new look
   }
@@ -248,32 +248,31 @@
     setTimeout(function () { messageBox.focus({ preventScroll: true }); }, 300);
   });
 
-  /* ---- after the timer: the reveal video */
-  var videoBox = $('[data-video]');
-  var videoInput = $('[data-video-input]');
-  var videoChange = $('[data-video-change]');
-  var shownVideo; // the address of the video the card shows
-  var uploading = false;
-  var PIECE = 8 * 1048576; // the video is sent in pieces this large (admin/video.php)
+  /* ---- after the timer: the reveal videos, one per shape of face (REVEAL_VIDEOS in includes/timer.php). The preview
+     and each face of the simulation play the video of their own face (data-reveal-face). Each video has its card,
+     which plays it, shows its details and changes it on its own: a chosen video plays in the card first and is sent
+     only on Save. */
+  var revealEls = root.querySelectorAll('[data-reveal-face]');
+  var PIECE = 8 * 1048576; // a video is sent in pieces this large (admin/video.php)
+  var cards = Array.prototype.map.call(root.querySelectorAll('[data-video-card]'), videoCard);
 
   function mb(bytes) { return (bytes / 1048576).toFixed(1) + ' MB'; }
 
-  // The video's name, size, shape and length in the card, and the video the preview plays at zero
-  function showVideo(v) {
-    var url = v ? v.url : '';
-    screenEl.setAttribute('data-reveal', url);
-    sims.forEach(function (el) { el.setAttribute('data-reveal', url); });
-    if (url === shownVideo) return;
-    shownVideo = url;
-    $('[data-video-name]').textContent = v ? v.name : 'No video yet';
-    if (!uploading) videoChange.textContent = v ? 'Change video' : 'Add video';
-    var meta = $('[data-video-meta]');
-    meta.textContent = v ? mb(v.size) : 'Screens hold 00:00:00 at zero until one is added.';
-    if (v) {
-      probe(url).then(function (m) {
-        if (m && shownVideo === url) meta.textContent = mb(v.size) + ' · ' + m.width + ' × ' + m.height + ' · ' + m.seconds.toFixed(1) + ' s';
-      });
-    }
+  // 12.5 s, 1 min 15 s (cr_seconds() in admin/includes/control.php)
+  function duration(secs) {
+    if (!(secs > 0) || !isFinite(secs)) return '';
+    if (secs < 60) return secs.toFixed(1) + ' s';
+    return Math.floor(secs / 60) + ' min ' + Math.floor(secs % 60) + ' s';
+  }
+
+  // Every face plays the video of its shape, and every card shows its own video
+  function showVideos(videos) {
+    videos = videos || {};
+    revealEls.forEach(function (el) {
+      var v = videos[el.getAttribute('data-reveal-face')];
+      el.setAttribute('data-reveal', v ? v.url : '');
+    });
+    cards.forEach(function (card) { card.show(videos[card.slot] || null); });
   }
 
   // The video's shape and length, as the browser reads them: null when the browser can't play it
@@ -295,89 +294,258 @@
     });
   }
 
-  videoInput.addEventListener('change', function () {
-    var file = videoInput.files[0];
-    videoInput.value = '';
-    if (!file || uploading) return;
-    var max = +videoBox.getAttribute('data-max');
-    if (!/\.mp4$/i.test(file.name) && file.type !== 'video/mp4') return A.toast('Choose an MP4 video.', true);
-    if (file.size > max) return A.toast('That video is larger than ' + Math.round(max / 1048576) + ' MB.', true);
-    var local = URL.createObjectURL(file);
-    probe(local).then(function (m) {
-      URL.revokeObjectURL(local);
-      if (!m) return A.toast('This video does not play in the browser. Save it as an MP4 (H.264) and try again.', true);
-      return A.confirm('Play “' + file.name + '” after the timer? It takes the place of the current video on every screen.', 'Change video')
-        .then(function (ok) { if (ok) upload(file); });
-    });
-  });
-
-  // Sends the video in pieces, each tried again a few times if the network drops
-  function upload(file) {
-    uploading = true;
-    videoInput.disabled = true;
-    videoBox.classList.add('is-uploading');
-    var bar = $('[data-video-progress]');
-    bar.hidden = false;
-    var bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    var id = Array.prototype.map.call(bytes, function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('');
-    var offset = 0;
-    var tries = 0;
-
-    function progress(sent) {
-      var pct = Math.min(100, sent / file.size * 100);
-      bar.firstChild.style.width = pct.toFixed(1) + '%';
-      videoChange.textContent = 'Uploading ' + Math.floor(pct) + '%';
-    }
-
-    function finish(error, ok) {
-      uploading = false;
-      videoInput.disabled = false;
-      videoBox.classList.remove('is-uploading');
-      bar.hidden = true;
-      bar.firstChild.style.width = '0';
-      videoChange.textContent = data.video ? 'Change video' : 'Add video';
-      A.toast(error || ok, !!error);
-    }
-
-    function next() {
-      var piece = file.slice(offset, offset + PIECE);
-      var body = new FormData();
-      body.append('csrf', csrf);
-      body.append('id', id);
-      body.append('offset', offset);
-      body.append('size', file.size);
-      body.append('name', file.name);
-      body.append('piece', piece, 'piece');
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', videoBox.getAttribute('data-upload'));
-      xhr.setRequestHeader('X-Requested-With', 'fetch');
-      xhr.responseType = 'json';
-      xhr.timeout = 120000;
-      xhr.upload.onprogress = function (e) { progress(offset + Math.min(e.loaded, piece.size)); };
-      xhr.onload = function () {
-        var d = xhr.response || {};
-        if (d.signed_out) {
-          finish(d.error);
-          return signedOut(d.error);
+  // A still from inside the video (a third of the way in), for its card before it plays: many reveal videos open on
+  // black. A data: address, or null when the browser can't get one.
+  function still(src) {
+    return new Promise(function (resolve) {
+      var v = document.createElement('video');
+      var giveUp = setTimeout(function () { done(null); }, 20000);
+      function done(url) {
+        clearTimeout(giveUp);
+        v.removeAttribute('src');
+        v.load();
+        resolve(url);
+      }
+      v.muted = true;
+      v.preload = 'auto';
+      v.addEventListener('loadedmetadata', function () {
+        if (!(v.duration > 0) || !isFinite(v.duration)) return done(null);
+        v.currentTime = v.duration / 3;
+      }, { once: true });
+      v.addEventListener('seeked', function () {
+        try {
+          var canvas = document.createElement('canvas');
+          canvas.height = Math.min(480, v.videoHeight);
+          canvas.width = Math.max(1, Math.round(canvas.height * v.videoWidth / v.videoHeight));
+          canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+          done(canvas.toDataURL('image/jpeg', 0.8));
+        } catch (e) {
+          done(null);
         }
-        if (xhr.status !== 200 || !d.ok) return finish(d.toast || d.error || 'The video could not be uploaded.');
-        tries = 0;
-        offset += piece.size;
-        progress(offset);
-        if (offset < file.size) return next();
+      }, { once: true });
+      v.addEventListener('error', function () { done(null); }, { once: true });
+      v.src = src;
+    });
+  }
+
+  // One video's card. show(v) puts in the saved video as the server sent it (null: none).
+  function videoCard(box) {
+    var q = function (sel) { return box.querySelector(sel); };
+    var card = { slot: box.getAttribute('data-video-card'), show: show };
+    var want = { width: +box.getAttribute('data-width'), height: +box.getAttribute('data-height') };
+    var screens = box.getAttribute('data-screens');
+    var player = q('[data-video-player]');
+    var input = q('[data-video-input]');
+    var change = q('[data-video-change]');
+    var save = q('[data-video-save]');
+    var cancel = q('[data-video-cancel]');
+    var bar = q('[data-video-progress]');
+    var note = q('[data-video-note]');
+    var saved = null;    // the saved video, as the server last sent it
+    var pending = null;  // a video chosen but not saved yet: { file, url: its address on this computer }
+    var info = null;     // what the card shows: name, size, at, width, height, seconds
+    var playing = player.getAttribute('src') || ''; // the address the card plays
+    var uploading = false;
+
+    function set(name, text) { q('[data-video-' + name + ']').textContent = text || '—'; }
+
+    // How the video's shape sits with its screens': { ok, label, note }
+    function shape(m) {
+      var size = want.width + ' × ' + want.height;
+      if (Math.abs(m.width / m.height / (want.width / want.height) - 1) > 0.01) {
+        return { ok: false, label: 'Not the screens’ shape', note: 'This video is not in the ' + size + ' shape of the ' + screens + ', so it is fitted to them as set under “Video on each face”.' };
+      }
+      if (m.width < want.width) {
+        return { ok: true, label: 'Right shape', note: 'Smaller than ' + size + ': it is enlarged to fill the screens and may look soft.' };
+      }
+      return { ok: true, label: 'Fits the screens', note: '' };
+    }
+
+    // The details that depend on the video itself, again once the player has read them
+    function describe() {
+      set('duration', info && duration(info.seconds));
+      var res = q('[data-video-resolution]');
+      var fit = info && info.width ? shape(info) : null;
+      res.textContent = fit ? info.width + ' × ' + info.height : '—';
+      if (fit) {
+        var badge = document.createElement('span');
+        badge.className = 'badge badge--' + (fit.ok ? 'ok' : 'warn');
+        badge.textContent = fit.label;
+        res.appendChild(badge);
+      }
+      var text = !info ? box.getAttribute('data-empty') : fit ? fit.note : '';
+      if (pending) text = 'Not saved yet. Press Save video to play it on the ' + screens + '.' + (text ? ' ' + text : '');
+      note.textContent = text;
+      note.classList.toggle('is-warn', !!fit && !fit.ok);
+    }
+
+    // Puts info in the card and plays url ('' for none)
+    function draw(url) {
+      if (url !== playing) {
+        playing = url;
+        player.removeAttribute('poster');
+        if (url) player.src = url;
+        else {
+          player.removeAttribute('src');
+          player.load();
+        }
+      }
+      if (url && !player.hasAttribute('poster') && player._still !== url) {
+        player._still = url;
+        still(url).then(function (poster) { if (poster && playing === url) player.poster = poster; });
+      }
+      player.hidden = !url;
+      q('[data-video-empty]').hidden = !!url;
+      set('name', info && info.name);
+      set('size', info && mb(info.size));
+      set('saved', pending ? 'Not saved yet' : info && info.at ? new Date(info.at * 1000).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '');
+      describe();
+      box.classList.toggle('is-pending', !!pending);
+      save.hidden = cancel.hidden = !pending;
+      if (!uploading) change.textContent = pending ? 'Choose another' : saved ? 'Change video' : 'Add video';
+      if (url && player.readyState >= 1) readMeta(); // read before this script ran
+    }
+
+    function show(v) {
+      var same = !!saved && !!v && saved.url === v.url;
+      saved = v;
+      if (pending || uploading) return; // the chosen video stays in the card until it is saved or let go
+      if (same) return; // nothing changed: keep what the player read
+      info = v ? Object.assign({}, v) : null;
+      draw(v ? v.url : '');
+    }
+
+    // The player read the video: its own shape and length win over what was stored (e.g. a file copied in by hand)
+    function readMeta() {
+      if (!info || !player.videoWidth) return;
+      info.width = player.videoWidth;
+      info.height = player.videoHeight;
+      if (player.duration > 0 && isFinite(player.duration)) info.seconds = player.duration;
+      describe();
+    }
+    player.addEventListener('loadedmetadata', readMeta);
+    player.addEventListener('error', function () {
+      if (player.getAttribute('src')) note.textContent = 'This video does not play in this browser.';
+    });
+
+    function letGo() {
+      if (pending) URL.revokeObjectURL(pending.url);
+      pending = null;
+    }
+
+    input.addEventListener('change', function () {
+      var file = input.files[0];
+      input.value = '';
+      if (!file || uploading) return;
+      var max = +box.getAttribute('data-max');
+      if (!/\.mp4$/i.test(file.name) && file.type !== 'video/mp4') return A.toast('Choose an MP4 video.', true);
+      if (file.size > max) return A.toast('That video is larger than ' + Math.round(max / 1048576) + ' MB.', true);
+      var url = URL.createObjectURL(file);
+      probe(url).then(function (m) {
+        if (!m || uploading) {
+          URL.revokeObjectURL(url);
+          if (!m) A.toast('This video does not play in the browser. Save it as an MP4 (H.264) and try again.', true);
+          return;
+        }
+        letGo();
+        pending = { file: file, url: url };
+        info = { name: file.name, size: file.size, width: m.width, height: m.height, seconds: m.seconds };
+        draw(url);
+      });
+    });
+
+    cancel.addEventListener('click', function () {
+      if (uploading) return;
+      letGo();
+      info = saved ? Object.assign({}, saved) : null;
+      draw(saved ? saved.url : '');
+    });
+
+    save.addEventListener('click', function () {
+      if (pending && !uploading) upload(pending.file, info);
+    });
+
+    // Sends the video in pieces, each tried again a few times if the network drops
+    function upload(file, meta) {
+      uploading = true;
+      input.disabled = save.disabled = cancel.disabled = true;
+      box.classList.add('is-uploading');
+      bar.hidden = false;
+      var bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      var id = Array.prototype.map.call(bytes, function (b) { return (b < 16 ? '0' : '') + b.toString(16); }).join('');
+      var offset = 0;
+      var tries = 0;
+
+      function progress(sent) {
+        var pct = Math.min(100, sent / file.size * 100);
+        bar.firstChild.style.width = pct.toFixed(1) + '%';
+        save.textContent = 'Saving ' + Math.floor(pct) + '%';
+      }
+
+      function finish(error, d) {
+        uploading = false;
+        input.disabled = save.disabled = cancel.disabled = false;
+        box.classList.remove('is-uploading');
+        bar.hidden = true;
+        bar.firstChild.style.width = '0';
+        save.textContent = 'Save video';
+        if (error) { // the chosen video stays, so Save tries again
+          draw(pending.url);
+          return A.toast(error, true);
+        }
+        var chosen = pending;
+        pending = null;
+        saved = null; // the card shows the saved video afresh
         actions++; // a check that left before this must not undo it
         apply(d);
-        finish(null, d.toast);
-      };
-      xhr.onerror = xhr.ontimeout = function () {
-        if (++tries <= 3) return setTimeout(next, 1000 * tries);
-        finish('Could not reach the server. Check your connection and try again.');
-      };
-      xhr.send(body);
+        if (chosen) URL.revokeObjectURL(chosen.url);
+        A.toast(d.toast);
+      }
+
+      function next() {
+        var piece = file.slice(offset, offset + PIECE);
+        var body = new FormData();
+        body.append('csrf', csrf);
+        body.append('video', card.slot);
+        body.append('id', id);
+        body.append('offset', offset);
+        body.append('size', file.size);
+        body.append('name', file.name);
+        body.append('width', meta.width || 0);
+        body.append('height', meta.height || 0);
+        body.append('seconds', meta.seconds || 0);
+        body.append('piece', piece, 'piece');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', box.getAttribute('data-upload'));
+        xhr.setRequestHeader('X-Requested-With', 'fetch');
+        xhr.responseType = 'json';
+        xhr.timeout = 120000;
+        xhr.upload.onprogress = function (e) { progress(offset + Math.min(e.loaded, piece.size)); };
+        xhr.onload = function () {
+          var d = xhr.response || {};
+          if (d.signed_out) {
+            finish(d.error);
+            return signedOut(d.error);
+          }
+          if (xhr.status !== 200 || !d.ok) return finish(d.toast || d.error || 'The video could not be uploaded.');
+          tries = 0;
+          offset += piece.size;
+          progress(offset);
+          if (offset < file.size) return next();
+          finish(null, d);
+        };
+        xhr.onerror = xhr.ontimeout = function () {
+          if (++tries <= 3) return setTimeout(next, 1000 * tries);
+          finish('Could not reach the server. Check your connection and try again.');
+        };
+        xhr.send(body);
+      }
+      progress(0);
+      next();
     }
-    progress(0);
-    next();
+
+    return card;
   }
 
   /* ---- after the timer: the simulation. It counts down the last SIM_FROM seconds on a model of each face and goes
@@ -391,7 +559,7 @@
   var SIM_FROM = 5;
   var sim = null; // the simulated timer while it plays
   var simTimer = null;
-  var warm = null; // a video loading the reveal ahead, so the simulation's video starts the moment it is due
+  var warm = {}; // address → a video loading it ahead, so each face's video starts the moment it is due
 
   // The timer as it stands before the simulation plays
   function simSettings() {
@@ -415,12 +583,25 @@
 
   simPlay.addEventListener('click', function () {
     var s = simSettings();
-    var src = data.video ? data.video.url : '';
-    if (s.end_show === 'video' && src && (!warm || warm.getAttribute('src') !== src)) {
-      warm = document.createElement('video'); // the browser shares what it loads with the faces' videos
-      warm.muted = true;
-      warm.preload = 'auto';
-      warm.src = src;
+    if (s.end_show === 'video') {
+      var keep = {};
+      sims.forEach(function (el) {
+        var src = el.getAttribute('data-reveal');
+        if (!src || keep[src]) return;
+        keep[src] = warm[src];
+        if (!keep[src]) {
+          var v = keep[src] = document.createElement('video'); // the browser shares what it loads with the faces' videos
+          v.muted = true;
+          v.preload = 'auto';
+          v.src = src;
+        }
+      });
+      Object.keys(warm).forEach(function (src) { // a video replaced meanwhile: stop loading it
+        if (keep[src]) return;
+        warm[src].removeAttribute('src');
+        warm[src].load();
+      });
+      warm = keep;
     }
     s.status = 'running';
     s.ends_at = C.mono() + SIM_FROM;

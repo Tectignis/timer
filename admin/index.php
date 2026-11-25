@@ -172,7 +172,7 @@ include __DIR__ . '/includes/header.php';
     <section class="panel stage" aria-label="Timer controls">
         <div class="stage__preview">
             <div class="preview" data-cr-preview>
-                <div class="screen" data-cr-screen data-reveal="<?= e($data['video']['url'] ?? '') ?>"></div>
+                <div class="screen" data-cr-screen data-reveal-face="<?= REVEAL_DEFAULT ?>" data-reveal="<?= e($data['videos'][REVEAL_DEFAULT]['url'] ?? '') ?>"></div>
             </div>
         </div>
 
@@ -345,30 +345,15 @@ include __DIR__ . '/includes/header.php';
                         <button class="btn btn--primary" name="do" value="end">Save</button>
                     </div>
                 </form>
-                <?php $video = $data['video']; ?>
-                <div class="field mt" data-video data-upload="<?= e(url('admin/video.php')) ?>" data-max="<?= REVEAL_MAX ?>">
-                    <span>Video</span>
-                    <div class="video-file">
-                        <div class="video-file__info">
-                            <strong data-video-name><?= e($video ? $video['name'] : 'No video yet') ?></strong>
-                            <span class="muted small" data-video-meta><?= $video ? number_format($video['size'] / 1048576, 1) . ' MB' : 'Screens hold 00:00:00 at zero until one is added.' ?></span>
-                        </div>
-                        <label class="btn btn--ghost btn--sm video-file__change">
-                            <span data-video-change><?= $video ? 'Change video' : 'Add video' ?></span>
-                            <input type="file" accept="video/mp4,.mp4" data-video-input>
-                        </label>
-                    </div>
-                    <div class="progress" data-video-progress hidden><span></span></div>
-                </div>
             </div>
 
             <!-- The last seconds and what follows on a model of each face, with the settings above (saved or not).
                  The real timer and the screens are left alone. -->
             <div class="sim">
                 <div class="sim__faces">
-                    <?php foreach (SCREEN_FACES as $face => [$face_name, $face_w, $face_h]): ?>
+                    <?php foreach (SCREEN_FACES as $face => [$face_name, $face_w, $face_h]): $reveal_face = isset(REVEAL_VIDEOS[$face]) ? $face : REVEAL_DEFAULT; ?>
                         <figure class="sim__face">
-                            <div class="screen<?= isset(SCREEN_WORDS[$face]) ? ' is-words' : '' ?>" data-sim-screen data-digit-scale="<?= face_digit_scale($face) ?>"<?php if (isset(SCREEN_WORDS[$face])): ?> data-words="<?= e(json_encode(SCREEN_WORDS[$face])) ?>"<?php endif; ?> data-reveal="<?= e($video['url'] ?? '') ?>" style="--ratio: <?= round($face_w / $face_h, 4) ?>"></div>
+                            <div class="screen<?= isset(SCREEN_WORDS[$face]) ? ' is-words' : '' ?>" data-sim-screen data-digit-scale="<?= face_digit_scale($face) ?>"<?php if (isset(SCREEN_WORDS[$face])): ?> data-words="<?= e(json_encode(SCREEN_WORDS[$face])) ?>"<?php endif; ?> data-reveal-face="<?= e($reveal_face) ?>" data-reveal="<?= e($data['videos'][$reveal_face]['url'] ?? '') ?>" style="--ratio: <?= round($face_w / $face_h, 4) ?>"></div>
                             <figcaption><?= e($face_name) ?></figcaption>
                         </figure>
                     <?php endforeach; ?>
@@ -378,6 +363,50 @@ include __DIR__ . '/includes/header.php';
                     <button type="button" class="btn btn--ghost" data-sim-stop hidden>Stop</button>
                 </div>
             </div>
+        </div>
+
+        <!-- The videos played at zero, one per shape of face (REVEAL_VIDEOS): each is shown, checked and changed on its
+             own. A chosen video plays in its card first and is sent only on Save (assets/js/control.js). -->
+        <div class="videos-head">
+            <h3>Video management</h3>
+            <p class="muted small">Each video plays only on its own screens and is saved on its own. Make it in its screens' shape, so it shows whole, without stretching. MP4 (H.264), up to <?= REVEAL_MAX / 1048576 ?> MB.</p>
+        </div>
+        <div class="videos">
+            <?php foreach (REVEAL_VIDEOS as $slot => $spec):
+                $video = $data['videos'][$slot];
+                $empty = 'No video yet: the ' . $spec['screens'] . (isset(SCREEN_WORDS[$slot]) ? ' keep their words' : ' hold 00:00:00') . ' at zero.'; ?>
+                <article class="vcard" data-video-card="<?= e($slot) ?>" data-upload="<?= e(url('admin/video.php')) ?>" data-max="<?= REVEAL_MAX ?>" data-width="<?= $spec['width'] ?>" data-height="<?= $spec['height'] ?>" data-screens="<?= e($spec['screens']) ?>" data-empty="<?= e($empty) ?>">
+                    <div class="vcard__head">
+                        <h4><?= e($spec['name']) ?></h4>
+                        <span class="muted small">Recommended <?= $spec['width'] ?> × <?= $spec['height'] ?> px</span>
+                    </div>
+                    <div class="vcard__body">
+                        <div class="vcard__preview" style="--ratio: <?= round($spec['width'] / $spec['height'], 4) ?>">
+                            <video muted loop playsinline controls preload="metadata" data-video-player<?= $video ? ' src="' . e($video['url']) . '"' : ' hidden' ?>></video>
+                            <p class="vcard__empty" data-video-empty<?= $video ? ' hidden' : '' ?>>No video yet</p>
+                        </div>
+                        <div class="vcard__side">
+                            <dl class="vinfo">
+                                <div><dt>File</dt><dd data-video-name><?= e($video['name'] ?? '—') ?></dd></div>
+                                <div><dt>Size</dt><dd data-video-size><?= $video ? cr_mb($video['size']) : '—' ?></dd></div>
+                                <div><dt>Duration</dt><dd data-video-duration><?= $video && $video['seconds'] ? cr_seconds($video['seconds']) : '—' ?></dd></div>
+                                <div><dt>Resolution</dt><dd data-video-resolution><?= $video && $video['width'] ? $video['width'] . ' × ' . $video['height'] : '—' ?></dd></div>
+                                <div><dt>Saved</dt><dd data-video-saved><?= $video ? e(date('j M, g:i a', (int) $video['at'])) : '—' ?></dd></div>
+                            </dl>
+                            <p class="vcard__note" data-video-note><?= $video ? '' : e($empty) ?></p>
+                            <div class="progress" data-video-progress hidden><span></span></div>
+                            <div class="row-actions">
+                                <label class="btn btn--ghost btn--sm file-pick">
+                                    <span data-video-change><?= $video ? 'Change video' : 'Add video' ?></span>
+                                    <input type="file" accept="video/mp4,.mp4" data-video-input>
+                                </label>
+                                <button type="button" class="btn btn--primary btn--sm" data-video-save hidden>Save video</button>
+                                <button type="button" class="btn btn--ghost btn--sm" data-video-cancel hidden>Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            <?php endforeach; ?>
         </div>
     </section>
 

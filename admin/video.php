@@ -1,7 +1,8 @@
 <?php
-// Changes the reveal video. The control room sends it in pieces (assets/js/control.js), so no upload limit of the
+// Changes one of the reveal videos (`video`: a key of REVEAL_VIDEOS, e.g. the front and back video or the side video),
+// leaving the other alone. The control room sends it in pieces (assets/js/control.js), so no upload limit of the
 // server or of the network in between gets in the way. The pieces are put together next to the database, out of
-// the web's reach, and the finished video takes the place of the old one (REVEAL_FILE).
+// the web's reach, and the finished video takes the place of the old one in VIDEO_DIR (reveal_file()).
 require __DIR__ . '/includes/auth.php';
 require __DIR__ . '/../includes/timer.php';
 require __DIR__ . '/includes/control.php';
@@ -15,13 +16,17 @@ function video_fail($message, $status = 400)
     json_out(['ok' => false, 'toast' => $message], $status);
 }
 
+$slot = (string) ($_POST['video'] ?? '');
 $id = (string) ($_POST['id'] ?? '');
 $offset = (int) ($_POST['offset'] ?? -1); // where this piece goes in the video
 $size = (int) ($_POST['size'] ?? 0);      // the whole video
-$name = mb_substr(trim(preg_replace('/[\x00-\x1f\x7f]+/u', '', basename((string) ($_POST['name'] ?? '')))), 0, 120) ?: 'reveal.mp4';
+$name = mb_substr(trim(preg_replace('/[\x00-\x1f\x7f]+/u', '', basename((string) ($_POST['name'] ?? '')))), 0, 120);
 $piece = $_FILES['piece'] ?? null;
 
-if (!preg_match('/^[a-f0-9]{16,32}$/', $id) || $offset < 0 || $size < 1) video_fail('Unknown action.');
+if (!isset(REVEAL_VIDEOS[$slot]) || !preg_match('/^[a-f0-9]{16,32}$/', $id) || $offset < 0 || $size < 1) video_fail('Unknown action.');
+$spec = REVEAL_VIDEOS[$slot];
+$target = reveal_file($slot);
+if ($name === '') $name = $spec['file'];
 if ($size > REVEAL_MAX) video_fail('That video is larger than ' . REVEAL_MAX / 1048576 . ' MB.');
 if (!$piece || ($piece['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($piece['tmp_name'])) {
     video_fail('Part of the video did not arrive. Try again.');
@@ -56,15 +61,20 @@ if (substr($head, 4, 4) !== 'ftyp') {
     @unlink($part);
     video_fail('That file is not an MP4 video.');
 }
-if (!is_dir(dirname(REVEAL_FILE))) mkdir(dirname(REVEAL_FILE), 0755, true);
-if (!@rename($part, REVEAL_FILE)) {
-    $copied = @copy($part, REVEAL_FILE);
+if (!is_dir(VIDEO_DIR)) @mkdir(VIDEO_DIR, 0755, true);
+if (!@rename($part, $target)) {
+    $copied = @copy($part, $target);
     @unlink($part);
     if (!$copied) video_fail('The video could not be saved on the server.', 500);
 }
 
-timer_change(function (&$s, $now) use ($name, $size) {
-    $s['video'] = ['name' => $name, 'size' => $size, 'at' => $now];
+// Its shape and length as the browser read them before sending it, shown in the control room (which checks them
+// again against the saved file)
+$width = (int) ($_POST['width'] ?? 0);
+$height = (int) ($_POST['height'] ?? 0);
+$seconds = (float) ($_POST['seconds'] ?? 0);
+timer_change(function (&$s, $now) use ($slot, $name, $size, $width, $height, $seconds) {
+    $s['videos'][$slot] = ['name' => $name, 'size' => $size, 'at' => $now, 'width' => $width, 'height' => $height, 'seconds' => $seconds];
 });
-log_activity('video', 'Changed the reveal video to ' . $name);
-json_out(['ok' => true, 'toast' => 'Video changed. Screens download it before zero.'] + cr_payload() + timer_clock());
+log_activity('video', 'Changed the ' . strtolower($spec['name']) . ' to ' . $name);
+json_out(['ok' => true, 'toast' => $spec['name'] . ' saved. The ' . $spec['screens'] . ' download it before zero.'] + cr_payload() + timer_clock());
