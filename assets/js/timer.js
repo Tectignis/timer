@@ -142,17 +142,19 @@
 
   function format(secs) { return groups(secs).join(':'); }
 
-  // What the screen shows at `now`: { kind: clock|text|video|blank, groups, text, since, ended }.
+  // What the screen shows at `now`: { kind: clock|text|video|words|blank, groups, text, since, ended }.
   // The reveal video starts end_delay seconds after zero; until then the screen holds 00:00:00.
   // since: seconds since the video started (null when the timer isn't running, so there is no zero to go by)
-  function content(s, now) {
+  // words: the face shows fixed words (see drawWords()) until the video, and never the time or a message
+  function content(s, now, words) {
     if (s.view === 'standby') return { kind: 'blank' };
-    if (s.view === 'message') return { kind: 'text', text: s.message };
+    if (s.view === 'message' && !words) return { kind: 'text', text: s.message };
     var l = left(s, now);
     if (l <= 0 && s.end_show === 'video') {
       var since = s.status === 'running' ? now - s.ends_at - (s.end_delay || 0) : null;
       if (since === null || since >= 0) return { kind: 'video', since: since, ended: true };
     }
+    if (words) return { kind: 'words' };
     return { kind: 'clock', groups: groups(l), ended: l <= 0 };
   }
 
@@ -424,6 +426,87 @@
     }
   }
 
+  /* ---- fixed words (the sides of the monolith) */
+
+  // A face in SCREEN_WORDS (includes/timer.php) shows its words, one per line, in place of the countdown until the
+  // reveal video starts. screen.php lists them in data-words (a JSON list). Gold letters of the brand font on the
+  // background, in the face's shape and stretched like any face.
+  function wordsOf(el) {
+    if (el._words === undefined) {
+      try {
+        el._words = JSON.parse(el.getAttribute('data-words') || 'null');
+      } catch (e) {
+        el._words = null;
+      }
+      if (!Array.isArray(el._words) || !el._words.length) el._words = null;
+    }
+    return el._words;
+  }
+
+  function drawWords(face, list, w, h) {
+    face.innerHTML = '<div class="words" role="img"></div>';
+    var box = face.firstChild;
+    box.setAttribute('aria-label', list.join(' '));
+    list.forEach(function (word) {
+      var span = document.createElement('span');
+      span.className = 'words__w';
+      span.textContent = word;
+      box.appendChild(span);
+    });
+    fitWords(box, w, h);
+  }
+
+  // Sizes the words to a w × h face and centres their letters on it. Each word's letters are WORDS_WIDTH of the face
+  // wide, unless all of them would then be taller than WORDS_HEIGHT of it, with WORDS_GAP of a letter's height
+  // between two words. The letters are measured, not the line boxes, so the words sit in the middle whatever the
+  // font. Laid out sizes (offset*, client*): a face of the monolith is stretched to the window afterwards.
+  var WORDS_WIDTH = 0.78;
+  var WORDS_HEIGHT = 0.64;
+  var WORDS_GAP = 0.42;
+  var measure = null;
+  function fitWords(words, w, h) {
+    var list = words.children;
+    if (!list.length || !w || !h) return;
+    var style = getComputedStyle(list[0]);
+    measure = measure || document.createElement('canvas').getContext('2d');
+    measure.font = style.fontStyle + ' ' + style.fontWeight + ' 100px ' + style.fontFamily;
+    var ink = [];
+    var wide = 0;
+    var up = 0;
+    var down = 0;
+    Array.prototype.forEach.call(list, function (word) { // letters' extent per px of font size
+      var m = measure.measureText(word.textContent);
+      var i = m.actualBoundingBoxAscent === undefined
+        ? { left: 0, right: m.width / 100, up: 0.5, down: 0, advance: m.width / 100 } // an old browser: guess the height
+        : { left: m.actualBoundingBoxLeft / 100, right: m.actualBoundingBoxRight / 100, up: m.actualBoundingBoxAscent / 100,
+            down: m.actualBoundingBoxDescent / 100, advance: m.width / 100 };
+      ink.push(i);
+      wide = Math.max(wide, i.left + i.right);
+      up = Math.max(up, i.up);
+      down = Math.max(down, i.down);
+    });
+    var tall = up + down;
+    if (!(wide > 0) || !(tall > 0)) return;
+    var n = list.length;
+    var size = Math.min(w * WORDS_WIDTH / wide, h * WORDS_HEIGHT / (tall * (n + (n - 1) * WORDS_GAP)));
+    words.style.transform = '';
+    words.style.fontSize = size.toFixed(3) + 'px';
+    words.style.lineHeight = (tall * (1 + WORDS_GAP)).toFixed(4); // one word's letters, then the gap
+    // Each word's letters in the middle across (the font centres its advance, which can sit a little to one side)
+    Array.prototype.forEach.call(list, function (word, k) {
+      word.style.left = ((ink[k].advance / 2 - (ink[k].right - ink[k].left) / 2) * size).toFixed(2) + 'px';
+    });
+    // and all of them in the middle down: find the first word's baseline, then move the block by what's left over
+    var mark = document.createElement('span');
+    mark.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    list[0].appendChild(mark);
+    var base = mark.offsetTop + list[0].offsetTop; // from the top of .words, which covers the face
+    list[0].removeChild(mark);
+    var top = base - up * size;
+    var bottom = base + (n - 1) * tall * (1 + WORDS_GAP) * size + down * size;
+    words.style.transform = 'translateY(' + (h / 2 - (top + bottom) / 2).toFixed(2) + 'px)';
+  }
+
   // Largest font size at which the text fits the face
   function fitText(box, h) {
     var lo = 4;
@@ -450,14 +533,15 @@
     el._ends = s.status === 'running' ? s.ends_at : null;
     el._now = now;
 
-    var c = content(s, now);
+    var words = wordsOf(el);
+    var c = content(s, now, words);
     var src = el.getAttribute('data-reveal');
     var r = null;
     if (src && (c.kind === 'video' || s.end_show === 'video' && el.hasAttribute('data-screen') && left(s, now) < REVEAL_EARLY)) {
       r = reveal(src);
     }
-    if (c.kind === 'video' && !(r && r.url && !r.failed)) c = { kind: 'clock', groups: groups(0), ended: true };
-    var faces = s.faces || 1;
+    if (c.kind === 'video' && !(r && r.url && !r.failed)) c = words ? { kind: 'words' } : { kind: 'clock', groups: groups(0), ended: true };
+    var faces = words ? 1 : s.faces || 1;
     var gold = s.look === 'gold';
     var still = el.getAttribute('data-ribbon') === 'static';
     var digitScale = parseFloat(el.getAttribute('data-digit-scale')) || 1;
@@ -486,6 +570,8 @@
       Array.prototype.forEach.call(el.children, function (face) {
         if (c.kind === 'video') {
           showReveal(face, r);
+        } else if (c.kind === 'words') {
+          drawWords(face, words, w, h);
         } else if (gold && c.kind !== 'blank') {
           drawGold(face, c, hourDigits, w, h, still, digitScale);
         } else if (c.kind === 'clock') {

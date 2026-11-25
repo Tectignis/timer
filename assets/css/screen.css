@@ -168,8 +168,9 @@ html:has(.screen-page), .screen-page { height: 100%; }
 
 /* ---------------------------------------------------------------- fixed words (the sides of the monolith)
    A face in SCREEN_WORDS (includes/timer.php) shows its words, one per line, in place of the countdown: no digits,
-   no ribbon. Gold letters of the brand font on the background, in the face's shape and stretched like any face.
-   assets/js/screen.js sizes them to the face and centres their letters; until it has, they are sized here. */
+   no ribbon, until the reveal video plays. Gold letters of the brand font on the background, in the face's shape and
+   stretched like any face. assets/js/timer.js sizes them to the face and centres their letters; until it has, they
+   are sized here. */
 .screen.is-words { container-type: size; }
 .words {
   position: absolute;
