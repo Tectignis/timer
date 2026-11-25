@@ -400,19 +400,34 @@
     return r;
   }
 
+  // How the video fills a face of another shape (end_fit): soft (the whole video, the rest of the face filled with
+  // its own light and colour, blurred), whole (the whole video on the background), fill (fills the face and cuts
+  // off what is left over) or stretch (the whole video stretched to the face)
+  var REVEAL_FITS = ['soft', 'whole', 'fill', 'stretch'];
+
   // The downloaded copy when it is here, otherwise straight from the server. What the face showed stays until the
-  // video's first frame is here, so the face never goes blank meanwhile.
-  function showReveal(face, r) {
+  // video's first frame is here, so the face never goes blank meanwhile. ratio: the face's real shape (width /
+  // height). The video is placed in parts of the face, so it lands right however the face is stretched.
+  // On a screen the face is then laid out over the whole window without the stretch (is-video, see
+  // assets/css/screen.css), so the browser draws the video straight onto the window.
+  function showReveal(el, face, r, fit, ratio) {
+    var box = document.createElement('div');
+    box.className = 'reveal';
     var v = document.createElement('video');
-    v.className = 'reveal';
     v.muted = true; // the attribute alone doesn't let every browser play it on its own
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
+    var soft = fit === 'soft' ? document.createElement('canvas') : null;
+    if (soft) box.appendChild(soft);
+    box.appendChild(v);
     var copy = r.url;
     v.addEventListener('loadeddata', function () {
-      v.classList.add('is-shown');
-      Array.prototype.slice.call(face.children).forEach(function (n) { if (n !== v) face.removeChild(n); });
+      if (box.parentNode !== face) return; // replaced meanwhile
+      box.classList.add('is-shown');
+      Array.prototype.slice.call(face.children).forEach(function (n) { if (n !== box) face.removeChild(n); });
+      if (el.hasAttribute('data-screen')) el.classList.add('is-video');
+      if (soft) softReveal(v, soft, ratio);
     }, { once: true });
     v.addEventListener('error', function () { // the copy won't play: play it from the server, then give up
       if (!copy) return (r.failed = true);
@@ -420,9 +435,59 @@
       r.url = copy = '';
       v.src = r.src;
     });
-    v.addEventListener('loadedmetadata', function () { keepReveal(v); });
+    v.addEventListener('loadedmetadata', function () {
+      placeReveal(v, fit, ratio);
+      keepReveal(v);
+    });
     v.src = copy || r.src;
-    face.appendChild(v);
+    face.appendChild(box);
+  }
+
+  // Sizes and places the video in parts of the face
+  function placeReveal(v, fit, ratio) {
+    var shape = v.videoWidth / v.videoHeight;
+    if (!(shape > 0) || !(ratio > 0)) return;
+    var w = 1;
+    var h = 1;
+    if (fit === 'fill') {
+      if (shape < ratio) h = ratio / shape;
+      else w = shape / ratio;
+    } else if (fit !== 'stretch') {
+      if (shape < ratio) w = shape / ratio;
+      else h = ratio / shape;
+    }
+    v.style.width = (w * 100).toFixed(3) + '%';
+    v.style.height = (h * 100).toFixed(3) + '%';
+    v.style.left = ((1 - w) * 50).toFixed(3) + '%';
+    v.style.top = ((1 - h) * 50).toFixed(3) + '%';
+  }
+
+  // The soft fill behind the video: each frame, the part of the picture in the face's shape is drawn small and
+  // blurred into a canvas that covers the face, so only its light and colour reach the edges
+  var SOFT_WIDTH = 160; // the canvas's pixels across: large enough for the browser to draw it on the graphics card
+  function softReveal(v, canvas, ratio) {
+    canvas.width = SOFT_WIDTH;
+    canvas.height = Math.max(1, Math.round(SOFT_WIDTH / ratio));
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.filter = 'blur(' + Math.round(SOFT_WIDTH / 16) + 'px)';
+    function paint() {
+      if (!v.isConnected) return; // the video is gone: stop
+      var vw = v.videoWidth;
+      var vh = v.videoHeight;
+      if (v.readyState >= 2 && vw && vh) {
+        var sw = vw;
+        var sh = vh;
+        if (vw / vh < ratio) sh = vw / ratio;
+        else sw = vh * ratio;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, canvas.width, canvas.height);
+      }
+      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(paint);
+      else setTimeout(paint, 100);
+    }
+    paint();
   }
 
   // since: seconds since zero at this moment (null: just play)
@@ -581,11 +646,18 @@
     }
     while (el.children.length > faces) el.removeChild(el.lastChild);
 
+    if (c.kind !== 'video') el.classList.remove('is-video'); // a face of the monolith is stretched again
     var w = el.clientWidth / faces;
     var h = el.clientHeight;
     var hourDigits = c.kind === 'clock' ? c.groups[0].length : 0;
     var layout = c.kind === 'clock' ? (gold ? 'line' : pickLayout(s.layout, hourDigits, w, h)) : '';
-    var key = [s.look, c.kind, layout, hourDigits, c.text || '', c.kind === 'video' ? r.src : '', faces, Math.round(w), Math.round(h)].join('|');
+    // The video is placed in parts of the face, so it needs the face's real shape (a face of the monolith has it
+    // in --ratio, whatever shape it is laid out in), not its size
+    var fit = REVEAL_FITS.indexOf(s.end_fit) >= 0 ? s.end_fit : REVEAL_FITS[0];
+    var ratio = (parseFloat(el.style.getPropertyValue('--ratio')) || el.clientWidth / el.clientHeight) / faces;
+    var key = [s.look, c.kind, layout, hourDigits, c.text || '', faces].concat(c.kind === 'video'
+      ? [r.src, fit, ratio.toFixed(4)]
+      : [Math.round(w), Math.round(h)]).join('|');
     var digits = c.kind === 'clock' ? c.groups.join('') : '';
 
     if (el._key !== key) {
@@ -593,7 +665,7 @@
       el._digits = digits;
       Array.prototype.forEach.call(el.children, function (face) {
         if (c.kind === 'video') {
-          showReveal(face, r);
+          showReveal(el, face, r, fit, ratio);
         } else if (c.kind === 'words') {
           drawWords(face, words, w, h);
         } else if (gold && c.kind !== 'blank') {
@@ -619,7 +691,7 @@
       });
     }
 
-    if (c.kind === 'video') el.querySelectorAll('.reveal').forEach(function (v) { syncReveal(v, c.since); });
+    if (c.kind === 'video') el.querySelectorAll('.reveal video').forEach(function (v) { syncReveal(v, c.since); });
   }
 
   // Forget the layout so the next render rebuilds (e.g. once the font has loaded)
