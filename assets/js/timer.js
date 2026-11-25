@@ -400,10 +400,10 @@
     return r;
   }
 
-  // How the video fills a face of another shape (end_fit): soft (the whole video, the rest of the face filled with
-  // its own light and colour, blurred), whole (the whole video on the background), fill (fills the face and cuts
-  // off what is left over) or stretch (the whole video stretched to the face)
-  var REVEAL_FITS = ['soft', 'whole', 'fill', 'stretch'];
+  // How the video fills a face of another shape (end_fit): fill (the whole face, see placeReveal()), soft (the whole
+  // video, the rest of the face filled with its own light and colour, blurred), whole (the whole video on the
+  // background) or stretch (the whole video stretched to the face)
+  var REVEAL_FITS = ['fill', 'soft', 'whole', 'stretch'];
 
   // The downloaded copy when it is here, otherwise straight from the server. What the face showed stays until the
   // video's first frame is here, so the face never goes blank meanwhile. ratio: the face's real shape (width /
@@ -465,15 +465,19 @@
     if (n.parentNode) n.parentNode.removeChild(n);
   }
 
-  // Sizes and places the video in parts of the face
+  // Sizes and places the video in parts of the face.
+  // Fill covers the whole face. The video is widened (or made taller) by up to FILL_STRETCH, too little for the eye to
+  // notice, so less of it is cut off. A video narrower than the face loses what is still left over at the top, so
+  // the logos and small print at the bottom of an advert stay; a wider one loses it evenly at both sides.
+  var FILL_STRETCH = 1.1;
   function placeReveal(v, fit, ratio) {
     var shape = v.videoWidth / v.videoHeight;
     if (!(shape > 0) || !(ratio > 0)) return;
     var w = 1;
     var h = 1;
     if (fit === 'fill') {
-      if (shape < ratio) h = ratio / shape;
-      else w = shape / ratio;
+      if (shape < ratio) h = ratio / shape / Math.min(FILL_STRETCH, ratio / shape);
+      else w = shape / ratio / Math.min(FILL_STRETCH, shape / ratio);
     } else if (fit !== 'stretch') {
       if (shape < ratio) w = shape / ratio;
       else h = ratio / shape;
@@ -481,7 +485,7 @@
     v.style.width = (w * 100).toFixed(3) + '%';
     v.style.height = (h * 100).toFixed(3) + '%';
     v.style.left = ((1 - w) * 50).toFixed(3) + '%';
-    v.style.top = ((1 - h) * 50).toFixed(3) + '%';
+    v.style.top = ((1 - h) * (fit === 'fill' ? 100 : 50)).toFixed(3) + '%';
   }
 
   // The soft fill behind the video: each frame, the part of the picture in the face's shape is drawn small and

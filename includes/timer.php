@@ -14,7 +14,7 @@ const TIMER_LOOKS = ['gold', 'plain'];
 const TIMER_END_SHOWS = ['video', 'clock'];
 // How the reveal video fills a face of another shape (see showReveal() in assets/js/timer.js), with its name in the
 // control room
-const TIMER_END_FITS = ['soft' => 'Soft sides', 'whole' => 'Plain sides', 'fill' => 'Fill', 'stretch' => 'Stretch'];
+const TIMER_END_FITS = ['fill' => 'Full width', 'soft' => 'Soft sides', 'whole' => 'Plain sides', 'stretch' => 'Stretch'];
 const TIMER_END_DELAY = 60; // most seconds the screens hold 00:00:00 before the reveal video starts
 // The reveal video played at zero on every face. Not in the repo: changed from the control room (admin/video.php).
 const REVEAL_FILE = __DIR__ . '/../assets/brand/reveal.mp4';
@@ -69,8 +69,8 @@ function timer_defaults($state)
         'recent'   => [],        // last few messages, for one-tap reuse
         'end_show' => 'video',   // after the timer: video (the reveal video, see reveal_url()) | clock (hold 00:00:00)
         'end_delay' => 3,        // seconds the screens hold 00:00:00 before the video starts
-        'end_fit'  => 'soft',    // the video on a face of another shape: soft (whole, the rest filled with its blurred light)
-                                 // | whole (whole, on the background) | fill (fills the face, cuts off the rest) | stretch
+        'end_fit'  => 'fill',    // the video on a face of another shape: fill (covers the face, cut off at the top) | soft
+                                 // (whole, the rest filled with its blurred light) | whole (whole, on the background) | stretch
         'video'    => [],        // the reveal video added from the control room: name (as uploaded), size, at (unix time)
         'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
@@ -88,7 +88,7 @@ function timer_defaults($state)
     if (!in_array($state['layout'], TIMER_LAYOUTS, true)) $state['layout'] = 'auto';
     if (!in_array($state['look'], TIMER_LOOKS, true)) $state['look'] = 'gold';
     if (!in_array($state['end_show'], TIMER_END_SHOWS, true)) $state['end_show'] = 'video';
-    if (!in_array($state['end_fit'], array_keys(TIMER_END_FITS), true)) $state['end_fit'] = 'soft';
+    if (!in_array($state['end_fit'], array_keys(TIMER_END_FITS), true)) $state['end_fit'] = 'fill';
     $state['duration'] = min(TIMER_MAX, max(0, (int) $state['duration']));
     $state['left'] = round(min(TIMER_MAX, max(0, (float) $state['left'])), 3); // to the millisecond
     $state['ends_at'] = round((float) $state['ends_at'], 3);
