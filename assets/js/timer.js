@@ -439,6 +439,7 @@
       placeReveal(v, fit, ratio);
       keepReveal(v);
     });
+    v.addEventListener('canplay', function () { keepReveal(v); });
     v.src = copy || r.src;
     face.appendChild(box);
   }
@@ -498,16 +499,21 @@
 
   // Keeps the video on the frame every other screen shows: a small drift is made up by playing a touch faster or
   // slower, a larger one (e.g. a screen opened after zero) by jumping there
+  // While it is still loading where it last jumped to, it is left alone: jumping again every draw would start the
+  // load over each time, so a video played from the server would never get going. It catches up once it can play
+  // (canplay, see showReveal()).
   function keepReveal(v) {
     if (v.paused) v.play().catch(function () {}); // not allowed yet: tried again on the next draw
     var d = v.duration;
     if (!v._sync || !(d > 0)) return;
+    if (v.seeking || v._jumped && v.readyState < 3) return;
     var want = (v._sync.since + mono() - v._sync.at) % d;
     var ahead = v.currentTime - want;
     if (ahead > d / 2) ahead -= d; // the other side of the loop
     if (ahead < -d / 2) ahead += d;
     if (Math.abs(ahead) > 0.5) {
       v.currentTime = want;
+      v._jumped = true;
       v.playbackRate = 1;
     } else {
       v.playbackRate = Math.abs(ahead) < 0.02 ? 1 : 1 - Math.max(-0.1, Math.min(0.1, ahead));
@@ -656,7 +662,7 @@
     var fit = REVEAL_FITS.indexOf(s.end_fit) >= 0 ? s.end_fit : REVEAL_FITS[0];
     var ratio = (parseFloat(el.style.getPropertyValue('--ratio')) || el.clientWidth / el.clientHeight) / faces;
     var key = [s.look, c.kind, layout, hourDigits, c.text || '', faces].concat(c.kind === 'video'
-      ? [r.src, fit, ratio.toFixed(4)]
+      ? [r.src, r.url ? 'copy' : 'server', fit, ratio.toFixed(4)] // once the copy is here, play that instead
       : [Math.round(w), Math.round(h)]).join('|');
     var digits = c.kind === 'clock' ? c.groups.join('') : '';
 
