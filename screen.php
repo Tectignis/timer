@@ -4,7 +4,8 @@
 // &ribbon=video moves light along the gold ribbon, &ribbon=static keeps it still. Without it the ribbon moves.
 // &face=side or &face=front keeps the shape of that face of the monolith. Without it the screen fills the window.
 // The sides (&face=side, static or video) show the words of SCREEN_WORDS in includes/timer.php instead of the
-// countdown: no digits and no ribbon, until the reveal video plays on every face after zero.
+// countdown: no digits and no ribbon, until the reveal video plays on every face after zero. The sides play the side
+// video, every other screen the front and back video (REVEAL_VIDEOS in includes/timer.php).
 // What it shows is controlled from the admin control room.
 define('NO_SESSION', true); // screens never sign in
 require __DIR__ . '/includes/timer.php';
@@ -43,6 +44,9 @@ $face = (string) ($_GET['face'] ?? '');
 // data-words lists them for assets/js/timer.js, which draws them again (and plays the reveal video in their place).
 // data-face carries the display name ("Sides"); data-face-id carries the face from the link ("side") for scripts.
 $words = $face_name ? SCREEN_WORDS[$face] ?? [] : [];
+// The reveal video of this face's shape (REVEAL_VIDEOS): the sides have their own, every other screen plays the front
+// and back one. data-reveal-face tells assets/js/screen.js which of the addresses in each check-in is this screen's.
+$reveal_face = isset(REVEAL_VIDEOS[$face]) ? $face : REVEAL_DEFAULT;
 $digit_scale = $face_name ? face_digit_scale($face) : 1;
 $data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
 header('Cache-Control: no-store'); // a stored copy would carry an old clock and state
@@ -58,7 +62,7 @@ header('Cache-Control: no-store'); // a stored copy would carry an old clock and
 <link rel="stylesheet" href="<?= asset('css/screen.css') ?>">
 </head>
 <body class="screen-page" style="background: <?= e($data['bg']) ?>">
-<div class="screen<?= $words ? ' is-words' : '' ?>" data-screen data-ribbon="<?= $ribbon ?>"<?php if ($face_name): ?> data-face="<?= e($face_name) ?>" data-face-id="<?= e($face) ?>" data-digit-scale="<?= $digit_scale ?>"<?php endif; ?><?php if ($words): ?> data-words="<?= e(json_encode($words)) ?>"<?php endif; ?> data-reveal="<?= e($data['reveal']) ?>" data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?><?= $face_name ? '; --ratio: ' . round($face_w / $face_h, 4) : '' ?>"><?php if ($words): ?><div class="face"><div class="words" role="img" aria-label="<?= e(implode(' ', $words)) ?>"><?php foreach ($words as $word): ?><span class="words__w"><?= e($word) ?></span><?php endforeach; ?></div></div><?php endif; ?></div>
+<div class="screen<?= $words ? ' is-words' : '' ?>" data-screen data-ribbon="<?= $ribbon ?>"<?php if ($face_name): ?> data-face="<?= e($face_name) ?>" data-face-id="<?= e($face) ?>" data-digit-scale="<?= $digit_scale ?>"<?php endif; ?><?php if ($words): ?> data-words="<?= e(json_encode($words)) ?>"<?php endif; ?> data-reveal-face="<?= e($reveal_face) ?>" data-reveal="<?= e($data['reveals'][$reveal_face]) ?>" data-feed="<?= e(url('screen.php?key=' . urlencode($key))) ?>" style="--fg: <?= e($data['fg']) ?>; --bg: <?= e($data['bg']) ?><?= $face_name ? '; --ratio: ' . round($face_w / $face_h, 4) : '' ?>"><?php if ($words): ?><div class="face"><div class="words" role="img" aria-label="<?= e(implode(' ', $words)) ?>"><?php foreach ($words as $word): ?><span class="words__w"><?= e($word) ?></span><?php endforeach; ?></div></div><?php endif; ?></div>
 <script type="application/json" id="screen-data"><?= json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <script src="<?= asset('js/timer.js') ?>" defer></script>
 <script src="<?= asset('js/screen.js') ?>" defer></script>

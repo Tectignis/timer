@@ -16,8 +16,16 @@ const TIMER_END_SHOWS = ['video', 'clock'];
 // control room
 const TIMER_END_FITS = ['fill' => 'Full width', 'soft' => 'Soft sides', 'whole' => 'Plain sides', 'stretch' => 'Stretch'];
 const TIMER_END_DELAY = 60; // most seconds the screens hold 00:00:00 before the reveal video starts
-// The reveal video played at zero on every face. Not in the repo: changed from the control room (admin/video.php).
-const REVEAL_FILE = __DIR__ . '/../assets/brand/reveal.mp4';
+// The reveal videos played at zero, one per shape of face, each changed on its own from the control room
+// (admin/video.php). Keyed like SCREEN_FACES: a face plays the video under its own key, a screen without a face plays
+// the front and back one (REVEAL_DEFAULT). Kept in VIDEO_DIR as `file`, not in the repo. `width` × `height`: the size
+// recommended for it in pixels, the face's own shape, so the video is shown whole without stretching.
+const VIDEO_DIR = __DIR__ . '/../videos';
+const REVEAL_VIDEOS = [
+    'front' => ['name' => 'Front & Back Screen Video', 'screens' => 'front and back screens', 'file' => 'front_back.mp4', 'width' => 2000, 'height' => 3000],
+    'side'  => ['name' => 'Side Screen Video', 'screens' => 'side screens', 'file' => 'side.mp4', 'width' => 1500, 'height' => 3000],
+];
+const REVEAL_DEFAULT = 'front';
 const REVEAL_MAX = 300 * 1024 * 1024; // largest video that can be added: every screen downloads it whole
 const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
 // The monolith's faces (mm, width × height), each with its own screen link (screen.php?…&face=side)
@@ -71,7 +79,8 @@ function timer_defaults($state)
         'end_delay' => 3,        // seconds the screens hold 00:00:00 before the video starts
         'end_fit'  => 'fill',    // the video on a face of another shape: fill (covers the face, cut off at the top) | soft
                                  // (whole, the rest filled with its blurred light) | whole (whole, on the background) | stretch
-        'video'    => [],        // the reveal video added from the control room: name (as uploaded), size, at (unix time)
+        'videos'   => [],        // the reveal videos added from the control room, keyed like REVEAL_VIDEOS: name (as
+                                 // uploaded), size, at (unix time), and width, height and seconds as the browser read them
         'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
         'bg'       => '#000000',
@@ -94,9 +103,20 @@ function timer_defaults($state)
     $state['ends_at'] = round((float) $state['ends_at'], 3);
     $state['faces'] = min(4, max(1, (int) $state['faces']));
     $state['end_delay'] = min(TIMER_END_DELAY, max(0, (int) $state['end_delay']));
-    $state['video'] = is_array($state['video']) && isset($state['video']['name'], $state['video']['size'], $state['video']['at'])
-        ? ['name' => mb_substr((string) $state['video']['name'], 0, 120), 'size' => (int) $state['video']['size'], 'at' => (float) $state['video']['at']]
-        : [];
+    $videos = [];
+    foreach (array_keys(REVEAL_VIDEOS) as $slot) {
+        $v = is_array($state['videos']) ? $state['videos'][$slot] ?? null : null;
+        if (!is_array($v) || !isset($v['name'], $v['size'], $v['at'])) continue;
+        $videos[$slot] = [
+            'name'    => mb_substr((string) $v['name'], 0, 120),
+            'size'    => (int) $v['size'],
+            'at'      => (float) $v['at'],
+            'width'   => min(20000, max(0, (int) ($v['width'] ?? 0))),
+            'height'  => min(20000, max(0, (int) ($v['height'] ?? 0))),
+            'seconds' => round(min(86400, max(0, (float) ($v['seconds'] ?? 0))), 2),
+        ];
+    }
+    $state['videos'] = $videos;
     $state['fg'] = timer_color($state['fg'], '#ffffff');
     $state['bg'] = timer_color($state['bg'], '#000000');
     $state['recent'] = array_slice(array_values(array_filter((array) $state['recent'], 'is_string')), 0, 5);
@@ -169,20 +189,37 @@ function timer_change(callable $change, $at = 0)
     return $result;
 }
 
-// The reveal video's address, '' when there is none. It changes with the file, so screens fetch a new video afresh.
-function reveal_url()
+// Where a reveal video ($slot: a key of REVEAL_VIDEOS) is kept
+function reveal_file($slot)
 {
-    clearstatcache(true, REVEAL_FILE); // a held check-in must see a video changed meanwhile
-    return is_file(REVEAL_FILE) ? asset('brand/reveal.mp4') : '';
+    return VIDEO_DIR . '/' . REVEAL_VIDEOS[$slot]['file'];
+}
+
+// A reveal video's address, '' when there is none. It changes with the file, so screens fetch a new video afresh.
+function reveal_url($slot)
+{
+    $file = reveal_file($slot);
+    clearstatcache(true, $file); // a held check-in must see a video changed meanwhile
+    if (!is_file($file)) return '';
+    return url('videos/' . REVEAL_VIDEOS[$slot]['file']) . '?v=' . filemtime($file) . '-' . filesize($file);
+}
+
+// Every reveal video's address, keyed like REVEAL_VIDEOS
+function reveal_urls()
+{
+    $urls = [];
+    foreach (array_keys(REVEAL_VIDEOS) as $slot) $urls[$slot] = reveal_url($slot);
+    return $urls;
 }
 
 // What a screen needs. The etag lets screens skip downloads when nothing changed. A new video changes the state
-// (`video`), so screens waiting for a change get its address at once.
+// (`videos`), so screens waiting for a change get its address at once. `reveals`: every video's address, so each
+// face picks its own (data-reveal-face, see screen.php).
 function timer_screen_payload($state = null)
 {
     $data = array_intersect_key($state ?? timer_state(), array_flip([
         'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'end_delay', 'end_fit', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
-    ])) + ['reveal' => reveal_url()];
+    ])) + ['reveals' => reveal_urls()];
     return ['etag' => md5(json_encode($data))] + $data;
 }
 

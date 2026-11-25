@@ -33,6 +33,9 @@
     el.innerHTML = '';
   }
 
+  // Which of the reveal videos this screen plays (REVEAL_VIDEOS in includes/timer.php): its face's, set by screen.php
+  var revealFace = el.getAttribute('data-reveal-face') || 'front';
+
   // A face of the monolith is laid out in its own shape and stretched to fill the window (assets/css/screen.css).
   // Worked out from the window and the face's shape, not from the laid out face, and again on every draw, so the
   // face fills the window even if the browser never said it changed size.
@@ -65,7 +68,8 @@
     var t = clock.now();
     stretch();
     document.body.style.background = data.bg;
-    if ('reveal' in data) el.setAttribute('data-reveal', data.reveal); // a new video from the control room
+    // a new video from the control room: the one of this face's shape (the sides have their own, see screen.php)
+    if (data.reveals) el.setAttribute('data-reveal', data.reveals[revealFace] || '');
     C.render(el, data, t);
     drawTimer = setTimeout(draw, Math.min(1000, C.untilNext(data, t) * 1000 + 2));
     if (clock.jumped()) restart(); // the computer slept or its time was changed

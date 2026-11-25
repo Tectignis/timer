@@ -368,25 +368,26 @@
 
   /* ---- the reveal video at zero */
 
-  // The video comes from data-reveal on the .screen element (reveal_url() in includes/timer.php). A screen downloads
-  // it whole from half an hour before zero, so it plays smoothly even on a slow network. It never waits for that:
+  // The video comes from data-reveal on the .screen element: the video of its face's shape (data-reveal-face,
+  // reveal_url() in includes/timer.php). A screen downloads it whole from half an hour before zero, so it plays
+  // smoothly even on a slow network. It never waits for that:
   // if the copy isn't here when the video is due, it plays straight from the server at once. The control room (its
   // preview and the simulation) always plays it from the server. Every screen plays it in step with the clock,
   // looping, so all faces show the same frame. If the browser can't play it, the screen holds 00:00:00 (a face with
   // words keeps its words).
   var REVEAL_EARLY = 1800;
-  var reveals = {}; // address → { src, url: the downloaded copy ('' until it is here), failed, fetching }
+  // address → { src, url: the downloaded copy ('' until it is here), failed, fetching, users: the .screen elements
+  // playing it }. Faces of different shapes have their own video (data-reveal-face), so one page (the control room's
+  // simulation) can play several at once.
+  var reveals = {};
 
-  // download: fetch a copy to play from (screens), otherwise it is only played from the server
-  function reveal(src, download) {
+  // The video el plays now. download: fetch a copy to play from (screens), otherwise it is only played from the server.
+  function reveal(el, src, download) {
+    if (el._reveal !== src) unreveal(el); // a new video took the old one's place
+    el._reveal = src;
     var r = reveals[src];
-    if (!r) {
-      Object.keys(reveals).forEach(function (old) { // a new video took the old one's place: let its copy go
-        if (reveals[old].url) URL.revokeObjectURL(reveals[old].url);
-        delete reveals[old];
-      });
-      r = reveals[src] = { src: src, url: '', failed: false, fetching: false };
-    }
+    if (!r) r = reveals[src] = { src: src, url: '', failed: false, fetching: false, users: [] };
+    if (r.users.indexOf(el) < 0) r.users.push(el);
     if (download && !r.fetching && !r.url) {
       r.fetching = true;
       fetch(src)
@@ -398,6 +399,17 @@
         .catch(function () { setTimeout(function () { r.fetching = false; }, 30000); }); // try again in a while
     }
     return r;
+  }
+
+  // el no longer plays its video: once no element does, its copy is let go
+  function unreveal(el) {
+    var r = el._reveal ? reveals[el._reveal] : null;
+    el._reveal = null;
+    if (!r) return;
+    r.users = r.users.filter(function (u) { return u !== el; });
+    if (r.users.length) return;
+    if (r.url) URL.revokeObjectURL(r.url);
+    delete reveals[r.src];
   }
 
   // How the video fills a face of another shape (end_fit): fill (the whole face, see placeReveal()), soft (the whole
@@ -658,7 +670,9 @@
     var screen = el.hasAttribute('data-screen');
     var r = null;
     if (src && (c.kind === 'video' || s.end_show === 'video' && screen && left(s, now) < REVEAL_EARLY)) {
-      r = reveal(src, screen);
+      r = reveal(el, src, screen);
+    } else if (!src) {
+      unreveal(el); // the video was taken away
     }
     if (c.kind === 'video' && !(r && !r.failed)) c = words ? { kind: 'words' } : { kind: 'clock', groups: groups(0), ended: true };
     var faces = words ? 1 : s.faces || 1;

@@ -6,6 +6,9 @@
 # Brand font and artwork for the gold look: licensed to the client, copied to each server by hand
 /assets/brand/
 
+# Reveal videos (front and back, sides), added from the control room
+/videos/
+
 # Local editor and tooling config
 CLAUDE.md
 AGENTS.md
