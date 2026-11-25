@@ -12,6 +12,9 @@ const TIMER_MAX = 999 * 3600 + 59 * 60 + 59; // 999:59:59
 const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
 const TIMER_LOOKS = ['gold', 'plain'];
 const TIMER_END_SHOWS = ['video', 'clock'];
+// How the reveal video fills a face of another shape (see showReveal() in assets/js/timer.js), with its name in the
+// control room
+const TIMER_END_FITS = ['soft' => 'Soft sides', 'whole' => 'Plain sides', 'fill' => 'Fill', 'stretch' => 'Stretch'];
 const TIMER_END_DELAY = 60; // most seconds the screens hold 00:00:00 before the reveal video starts
 // The reveal video played at zero on every face. Not in the repo: changed from the control room (admin/video.php).
 const REVEAL_FILE = __DIR__ . '/../assets/brand/reveal.mp4';
@@ -66,6 +69,8 @@ function timer_defaults($state)
         'recent'   => [],        // last few messages, for one-tap reuse
         'end_show' => 'video',   // after the timer: video (the reveal video, see reveal_url()) | clock (hold 00:00:00)
         'end_delay' => 3,        // seconds the screens hold 00:00:00 before the video starts
+        'end_fit'  => 'soft',    // the video on a face of another shape: soft (whole, the rest filled with its blurred light)
+                                 // | whole (whole, on the background) | fill (fills the face, cuts off the rest) | stretch
         'video'    => [],        // the reveal video added from the control room: name (as uploaded), size, at (unix time)
         'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
@@ -83,6 +88,7 @@ function timer_defaults($state)
     if (!in_array($state['layout'], TIMER_LAYOUTS, true)) $state['layout'] = 'auto';
     if (!in_array($state['look'], TIMER_LOOKS, true)) $state['look'] = 'gold';
     if (!in_array($state['end_show'], TIMER_END_SHOWS, true)) $state['end_show'] = 'video';
+    if (!in_array($state['end_fit'], array_keys(TIMER_END_FITS), true)) $state['end_fit'] = 'soft';
     $state['duration'] = min(TIMER_MAX, max(0, (int) $state['duration']));
     $state['left'] = round(min(TIMER_MAX, max(0, (float) $state['left'])), 3); // to the millisecond
     $state['ends_at'] = round((float) $state['ends_at'], 3);
@@ -175,7 +181,7 @@ function reveal_url()
 function timer_screen_payload($state = null)
 {
     $data = array_intersect_key($state ?? timer_state(), array_flip([
-        'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'end_delay', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
+        'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'end_delay', 'end_fit', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
     ])) + ['reveal' => reveal_url()];
     return ['etag' => md5(json_encode($data))] + $data;
 }

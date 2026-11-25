@@ -115,7 +115,8 @@ if (is_post()) {
                     if (!in_array(post('end_show'), TIMER_END_SHOWS, true)) return $error = 'Unknown action.';
                     $s['end_show'] = post('end_show');
                     $s['end_delay'] = min(TIMER_END_DELAY, max(0, (int) post('end_delay')));
-                    log_activity('end', $s['end_show'] === 'video' ? 'Reveal video ' . $s['end_delay'] . ' s after zero' : 'Hold 00:00:00 at zero');
+                    if (in_array(post('end_fit'), array_keys(TIMER_END_FITS), true)) $s['end_fit'] = post('end_fit');
+                    log_activity('end', $s['end_show'] === 'video' ? 'Reveal video ' . $s['end_delay'] . ' s after zero, ' . strtolower(TIMER_END_FITS[$s['end_fit']]) : 'Hold 00:00:00 at zero');
                     return 'Saved.';
 
                 case 'display':
@@ -332,6 +333,14 @@ include __DIR__ . '/includes/header.php';
                             <span>seconds after zero</span>
                         </span>
                     </label>
+                    <div class="field">
+                        <span>Video on each face</span>
+                        <div class="seg seg--radio">
+                            <?php foreach (TIMER_END_FITS as $value => $label): ?>
+                                <label><input type="radio" name="end_fit" value="<?= $value ?>" <?= $state['end_fit'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                     <div class="row-actions">
                         <button class="btn btn--primary" name="do" value="end">Save</button>
                     </div>

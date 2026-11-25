@@ -398,6 +398,8 @@
     var s = Object.assign({}, data.state, { status: 'ready', left: SIM_FROM, ends_at: 0, view: 'timer', faces: 1 });
     var show = endForm.querySelector('[name=end_show]:checked');
     if (show) s.end_show = show.value;
+    var fit = endForm.querySelector('[name=end_fit]:checked');
+    if (fit) s.end_fit = fit.value;
     var delay = endForm.elements.end_delay;
     s.end_delay = Math.max(0, Math.min(+delay.max, parseInt(delay.value, 10) || 0));
     return s;
@@ -425,6 +427,13 @@
     sim = s;
     simLabel.textContent = 'Play again';
     simStop.hidden = false;
+    simDraw();
+  });
+
+  // Another choice of how the video fills each face shows on the model at once, also while it plays
+  endForm.addEventListener('change', function (e) {
+    if (e.target.name !== 'end_fit') return;
+    if (sim) sim.end_fit = e.target.value;
     simDraw();
   });
 
