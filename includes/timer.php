@@ -29,6 +29,14 @@ const SCREEN_WORDS = [
     'side' => ['zero', 'zero', 'zero'],
 ];
 
+// How wide the gold digits are on a face, against its width: the faces are equally tall, so the digits are as large
+// on every face as on the narrowest one (data-digit-scale, see drawGold() in assets/js/timer.js)
+function face_digit_scale($face)
+{
+    [, $w, $h] = SCREEN_FACES[$face];
+    return round(min(array_map(fn ($f) => $f[1] / $f[2], SCREEN_FACES)) / ($w / $h), 4);
+}
+
 function timer_now()
 {
     return round(microtime(true), 3);

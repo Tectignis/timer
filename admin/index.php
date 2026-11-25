@@ -314,40 +314,61 @@ include __DIR__ . '/includes/header.php';
 
     <section class="panel" id="after">
         <h2>After the timer</h2>
-        <form method="post" class="stack" data-cr-form data-cr-end>
-            <?= csrf_field() ?>
-            <div class="field">
-                <span>At zero, show</span>
-                <div class="seg seg--radio">
-                    <?php foreach (['video' => 'Reveal video', 'clock' => '00:00:00'] as $value => $label): ?>
-                        <label><input type="radio" name="end_show" value="<?= $value ?>" <?= $state['end_show'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
+        <div class="after">
+            <div>
+                <form method="post" class="stack" data-cr-form data-cr-end>
+                    <?= csrf_field() ?>
+                    <div class="field">
+                        <span>At zero, show</span>
+                        <div class="seg seg--radio">
+                            <?php foreach (['video' => 'Reveal video', 'clock' => '00:00:00'] as $value => $label): ?>
+                                <label><input type="radio" name="end_show" value="<?= $value ?>" <?= $state['end_show'] === $value ? 'checked' : '' ?>><span><?= $label ?></span></label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <label class="field" data-end-delay><span>Video starts</span>
+                        <span class="suffix">
+                            <input type="number" name="end_delay" min="0" max="<?= TIMER_END_DELAY ?>" step="1" inputmode="numeric" value="<?= $state['end_delay'] ?>">
+                            <span>seconds after zero</span>
+                        </span>
+                    </label>
+                    <div class="row-actions">
+                        <button class="btn btn--primary" name="do" value="end">Save</button>
+                    </div>
+                </form>
+                <?php $video = $data['video']; ?>
+                <div class="field mt" data-video data-upload="<?= e(url('admin/video.php')) ?>" data-max="<?= REVEAL_MAX ?>">
+                    <span>Video</span>
+                    <div class="video-file">
+                        <div class="video-file__info">
+                            <strong data-video-name><?= e($video ? $video['name'] : 'No video yet') ?></strong>
+                            <span class="muted small" data-video-meta><?= $video ? number_format($video['size'] / 1048576, 1) . ' MB' : 'Screens hold 00:00:00 at zero until one is added.' ?></span>
+                        </div>
+                        <label class="btn btn--ghost btn--sm video-file__change">
+                            <span data-video-change><?= $video ? 'Change video' : 'Add video' ?></span>
+                            <input type="file" accept="video/mp4,.mp4" data-video-input>
+                        </label>
+                    </div>
+                    <div class="progress" data-video-progress hidden><span></span></div>
+                </div>
+            </div>
+
+            <!-- The last seconds and what follows on a model of each face, with the settings above (saved or not).
+                 The real timer and the screens are left alone. -->
+            <div class="sim">
+                <div class="sim__faces">
+                    <?php foreach (SCREEN_FACES as $face => [$face_name, $face_w, $face_h]): ?>
+                        <figure class="sim__face">
+                            <div class="screen<?= isset(SCREEN_WORDS[$face]) ? ' is-words' : '' ?>" data-sim-screen data-digit-scale="<?= face_digit_scale($face) ?>"<?php if (isset(SCREEN_WORDS[$face])): ?> data-words="<?= e(json_encode(SCREEN_WORDS[$face])) ?>"<?php endif; ?> data-reveal="<?= e($video['url'] ?? '') ?>" style="--ratio: <?= round($face_w / $face_h, 4) ?>"></div>
+                            <figcaption><?= e($face_name) ?></figcaption>
+                        </figure>
                     <?php endforeach; ?>
                 </div>
-            </div>
-            <label class="field" data-end-delay><span>Video starts</span>
-                <span class="suffix">
-                    <input type="number" name="end_delay" min="0" max="<?= TIMER_END_DELAY ?>" step="1" inputmode="numeric" value="<?= $state['end_delay'] ?>">
-                    <span>seconds after zero</span>
-                </span>
-            </label>
-            <div class="row-actions">
-                <button class="btn btn--primary" name="do" value="end">Save</button>
-            </div>
-        </form>
-        <?php $video = $data['video']; ?>
-        <div class="field mt" data-video data-upload="<?= e(url('admin/video.php')) ?>" data-max="<?= REVEAL_MAX ?>">
-            <span>Video</span>
-            <div class="video-file">
-                <div class="video-file__info">
-                    <strong data-video-name><?= e($video ? $video['name'] : 'No video yet') ?></strong>
-                    <span class="muted small" data-video-meta><?= $video ? number_format($video['size'] / 1048576, 1) . ' MB' : 'Screens hold 00:00:00 at zero until one is added.' ?></span>
+                <div class="row-actions">
+                    <button type="button" class="btn btn--primary" data-sim-play><?= cr_icon('play') ?><span data-sim-label>Play simulation</span></button>
+                    <button type="button" class="btn btn--ghost" data-sim-stop hidden>Stop</button>
                 </div>
-                <label class="btn btn--ghost btn--sm video-file__change">
-                    <span data-video-change><?= $video ? 'Change video' : 'Add video' ?></span>
-                    <input type="file" accept="video/mp4,.mp4" data-video-input>
-                </label>
             </div>
-            <div class="progress" data-video-progress hidden><span></span></div>
         </div>
     </section>
 

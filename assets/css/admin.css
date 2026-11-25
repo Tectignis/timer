@@ -40,6 +40,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -455,6 +456,29 @@ kbd {
 
 .offline-note { display: none; margin-top: 8px; color: var(--no); font-size: 13px; font-weight: 600; }
 .cr.is-offline .offline-note { display: block; }
+
+/* After the timer: the settings and the video beside the simulation */
+.after { display: grid; gap: 24px; }
+@media (min-width: 900px) {
+  .after { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+}
+.sim {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #0B0B0B;
+}
+.sim__faces { display: flex; align-items: flex-end; justify-content: center; gap: 12px; }
+.sim__face { display: grid; justify-items: center; gap: 8px; margin: 0; }
+/* each face in its own shape (--ratio, width / height), all equally tall like the monolith's */
+.sim__face .screen { width: auto; height: clamp(150px, 46vw, 320px); aspect-ratio: var(--ratio); border-radius: 3px; }
+.sim__face figcaption { color: rgba(255, 255, 255, .6); font: 700 11px/1.4 var(--body); letter-spacing: .06em; text-transform: uppercase; }
+.sim .btn--primary { background: #fff; color: var(--ink); }
+.sim .btn--primary:hover { background: #E9E6DF; }
+.sim .btn--ghost { background: transparent; border-color: rgba(255, 255, 255, .3); color: #fff; }
+.sim .btn--ghost:hover { border-color: #fff; }
 
 .screens { margin: 0; padding: 0; list-style: none; }
 .screens li {

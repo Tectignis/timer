@@ -43,8 +43,7 @@ $face = (string) ($_GET['face'] ?? '');
 // data-words lists them for assets/js/timer.js, which draws them again (and plays the reveal video in their place).
 // data-face carries the display name ("Sides"); data-face-id carries the face from the link ("side") for scripts.
 $words = $face_name ? SCREEN_WORDS[$face] ?? [] : [];
-// The faces are equally tall, so the digits are as large on every face as on the narrowest one
-$digit_scale = $face_name ? round(min(array_map(fn ($f) => $f[1] / $f[2], SCREEN_FACES)) / ($face_w / $face_h), 4) : 1;
+$digit_scale = $face_name ? face_digit_scale($face) : 1;
 $data = timer_screen_payload() + timer_clock(); // the clock before anything is sent: the page is the first measurement
 header('Cache-Control: no-store'); // a stored copy would carry an old clock and state
 ?>

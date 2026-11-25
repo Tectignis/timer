@@ -369,10 +369,10 @@
   /* ---- the reveal video at zero */
 
   // The video comes from data-reveal on the .screen element (reveal_url() in includes/timer.php). It is downloaded
-  // whole beforehand, so it starts the moment the timer runs out even on a slow network: a screen fetches it from
-  // half an hour before zero, the control room preview only at zero. Every screen plays it in step with the clock,
-  // looping, so all faces show the same frame. Until it has arrived, or if the browser can't play it, the screen
-  // holds 00:00:00.
+  // whole beforehand, so it starts on time even on a slow network: a screen fetches it from half an hour before
+  // zero, the control room preview only when it is due and the simulation before it plays. Every screen plays it in
+  // step with the clock, looping, so all faces show the same frame. Until it has arrived, or if the browser can't
+  // play it, the screen holds 00:00:00 (a face with words keeps its words).
   var REVEAL_EARLY = 1800;
   var reveals = {}; // address → { src, url: the downloaded copy, failed, ready: a promise of true once downloaded }
 
@@ -611,5 +611,8 @@
   // Forget the layout so the next render rebuilds (e.g. once the font has loaded)
   function refit(el) { el._key = null; }
 
-  window.Countdown = { Clock: Clock, mono: mono, left: left, untilNext: untilNext, format: format, content: content, render: render, refit: refit };
+  // Downloads the reveal video ahead (e.g. for the control room's simulation): a promise of true once it is here
+  function preload(src) { return reveal(src).ready; }
+
+  window.Countdown = { Clock: Clock, mono: mono, left: left, untilNext: untilNext, format: format, content: content, render: render, refit: refit, preload: preload };
 })();

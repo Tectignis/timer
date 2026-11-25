@@ -69,6 +69,7 @@
     sizePreview();
     showVideo(d.video);
     tick();
+    if (!sim) simDraw(); // e.g. a new look
   }
 
   // Status, the big readout and the preview. Runs again the moment the next second is due (at least once a second).
@@ -261,6 +262,7 @@
   function showVideo(v) {
     var url = v ? v.url : '';
     screenEl.setAttribute('data-reveal', url);
+    sims.forEach(function (el) { el.setAttribute('data-reveal', url); });
     if (url === shownVideo) return;
     shownVideo = url;
     $('[data-video-name]').textContent = v ? v.name : 'No video yet';
@@ -378,15 +380,78 @@
     next();
   }
 
+  /* ---- after the timer: the simulation. It counts down the last SIM_FROM seconds on a model of each face and goes
+     on as the screens would, with the settings in the card, saved or not. It runs on this computer's own clock and
+     leaves the real timer and the screens alone. */
+  var sims = root.querySelectorAll('[data-sim-screen]');
+  var endForm = $('[data-cr-end]');
+  var simPlay = $('[data-sim-play]');
+  var simStop = $('[data-sim-stop]');
+  var simLabel = $('[data-sim-label]');
+  var SIM_FROM = 5;
+  var sim = null; // the simulated timer while it plays
+  var simTimer = null;
+
+  // The timer as it stands before the simulation plays
+  function simSettings() {
+    var s = Object.assign({}, data.state, { status: 'ready', left: SIM_FROM, ends_at: 0, view: 'timer', faces: 1 });
+    var show = endForm.querySelector('[name=end_show]:checked');
+    if (show) s.end_show = show.value;
+    var delay = endForm.elements.end_delay;
+    s.end_delay = Math.max(0, Math.min(+delay.max, parseInt(delay.value, 10) || 0));
+    return s;
+  }
+
+  function simDraw() {
+    clearTimeout(simTimer);
+    var s = sim || simSettings();
+    var t = C.mono();
+    sims.forEach(function (el) { C.render(el, s, t); });
+    if (sim) simTimer = setTimeout(simDraw, Math.min(1000, C.untilNext(s, t) * 1000 + 2));
+  }
+
+  simPlay.addEventListener('click', function () {
+    var s = simSettings();
+    var src = data.video ? data.video.url : '';
+    simPlay.classList.add('is-busy');
+    simLabel.textContent = 'Loading the video…';
+    (s.end_show === 'video' && src ? C.preload(src) : Promise.resolve(true)).then(function (ok) {
+      simPlay.classList.remove('is-busy');
+      simLabel.textContent = 'Play again';
+      if (!ok) A.toast('The video could not be loaded, so the simulation holds 00:00:00.', true);
+      s.status = 'running';
+      s.ends_at = C.mono() + SIM_FROM;
+      sim = s;
+      simStop.hidden = false;
+      simDraw();
+    });
+  });
+
+  simStop.addEventListener('click', function () {
+    sim = null;
+    simStop.hidden = true;
+    simLabel.textContent = 'Play simulation';
+    simDraw();
+  });
+
+  // Lay the preview and the simulation out again, e.g. once a font has arrived
+  function refitAll() {
+    C.refit(screenEl);
+    sims.forEach(function (el) { C.refit(el); });
+    tick();
+    simDraw();
+  }
+
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
     tick(); // timers may have been held back while hidden
+    if (sim) simDraw();
     poll();
   });
-  window.addEventListener('resize', function () { sizePreview(); tick(); });
+  window.addEventListener('resize', function () { sizePreview(); tick(); simDraw(); });
   if (document.fonts) { // fit again once a font arrives, e.g. the gold digits after switching looks
-    document.fonts.ready.then(function () { C.refit(screenEl); tick(); });
-    document.fonts.addEventListener('loadingdone', function () { C.refit(screenEl); tick(); });
+    document.fonts.ready.then(refitAll);
+    document.fonts.addEventListener('loadingdone', refitAll);
   }
 
   apply(data);
