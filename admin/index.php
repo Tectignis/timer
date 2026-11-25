@@ -114,7 +114,8 @@ if (is_post()) {
                 case 'end': // what the screens show after the timer
                     if (!in_array(post('end_show'), TIMER_END_SHOWS, true)) return $error = 'Unknown action.';
                     $s['end_show'] = post('end_show');
-                    log_activity('end', $s['end_show'] === 'video' ? 'Reveal video at zero' : 'Hold 00:00:00 at zero');
+                    $s['end_delay'] = min(TIMER_END_DELAY, max(0, (int) post('end_delay')));
+                    log_activity('end', $s['end_show'] === 'video' ? 'Reveal video ' . $s['end_delay'] . ' s after zero' : 'Hold 00:00:00 at zero');
                     return 'Saved.';
 
                 case 'display':
@@ -323,6 +324,12 @@ include __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                 </div>
             </div>
+            <label class="field" data-end-delay><span>Video starts</span>
+                <span class="suffix">
+                    <input type="number" name="end_delay" min="0" max="<?= TIMER_END_DELAY ?>" step="1" inputmode="numeric" value="<?= $state['end_delay'] ?>">
+                    <span>seconds after zero</span>
+                </span>
+            </label>
             <div class="row-actions">
                 <button class="btn btn--primary" name="do" value="end">Save</button>
             </div>

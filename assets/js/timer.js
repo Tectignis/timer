@@ -120,10 +120,15 @@
   // The whole second shown. Rounds up, so the screen shows 00:00:01 until the very end.
   function shown(secs) { return Math.ceil(Math.round(secs * 1000) / 1000); }
 
-  // Seconds until the next second is due, i.e. when the countdown should be drawn again (Infinity while stopped)
+  // Seconds until the screen changes on its own, i.e. when it should be drawn again: the next second, or the reveal
+  // video starting after zero (Infinity while stopped)
   function untilNext(s, now) {
     var l = left(s, now);
-    if (s.status !== 'running' || l <= 0) return Infinity;
+    if (s.status !== 'running') return Infinity;
+    if (l <= 0) {
+      var start = s.ends_at + (s.end_delay || 0) - now;
+      return s.end_show === 'video' && start > 0 ? start : Infinity;
+    }
     return l - (shown(l) - 1);
   }
 
@@ -138,12 +143,16 @@
   function format(secs) { return groups(secs).join(':'); }
 
   // What the screen shows at `now`: { kind: clock|text|video|blank, groups, text, since, ended }.
-  // since: seconds since zero for the reveal video (null when the timer isn't running, so there is no zero to go by)
+  // The reveal video starts end_delay seconds after zero; until then the screen holds 00:00:00.
+  // since: seconds since the video started (null when the timer isn't running, so there is no zero to go by)
   function content(s, now) {
     if (s.view === 'standby') return { kind: 'blank' };
     if (s.view === 'message') return { kind: 'text', text: s.message };
     var l = left(s, now);
-    if (l <= 0 && s.end_show === 'video') return { kind: 'video', since: s.status === 'running' ? now - s.ends_at : null, ended: true };
+    if (l <= 0 && s.end_show === 'video') {
+      var since = s.status === 'running' ? now - s.ends_at - (s.end_delay || 0) : null;
+      if (since === null || since >= 0) return { kind: 'video', since: since, ended: true };
+    }
     return { kind: 'clock', groups: groups(l), ended: l <= 0 };
   }
 

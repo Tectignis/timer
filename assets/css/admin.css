@@ -272,6 +272,12 @@ kbd {
 /* The gold look has its own digit colour and placement */
 .stack:has(input[name="look"][value="gold"]:checked) [data-plain-only] { display: none; }
 
+/* After the timer: the wait before the video only matters when there is a video */
+.stack:has(input[name="end_show"][value="clock"]:checked) [data-end-delay] { display: none; }
+.field > .suffix { display: flex; align-items: center; gap: 10px; margin: 0; }
+.field .suffix input { width: 92px; }
+.suffix > span { color: var(--muted); font-weight: 400; font-size: 14px; }
+
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -12,6 +12,7 @@ const TIMER_MAX = 999 * 3600 + 59 * 60 + 59; // 999:59:59
 const TIMER_LAYOUTS = ['auto', 'line', 'stacked'];
 const TIMER_LOOKS = ['gold', 'plain'];
 const TIMER_END_SHOWS = ['video', 'clock'];
+const TIMER_END_DELAY = 60; // most seconds the screens hold 00:00:00 before the reveal video starts
 const SCREEN_WAIT = 15; // seconds a screen's check-in is held open waiting for a change
 // The monolith's faces (mm, width × height), each with its own screen link (screen.php?…&face=side)
 const SCREEN_FACES = [
@@ -53,6 +54,7 @@ function timer_defaults($state)
         'message'  => '',
         'recent'   => [],        // last few messages, for one-tap reuse
         'end_show' => 'video',   // after the timer: video (the reveal video, see reveal_url()) | clock (hold 00:00:00)
+        'end_delay' => 3,        // seconds the screens hold 00:00:00 before the video starts
         'look'     => 'gold',    // gold (brand digits with the ribbon under them) | plain (digits in fg on bg)
         'fg'       => '#ffffff',
         'bg'       => '#000000',
@@ -73,6 +75,7 @@ function timer_defaults($state)
     $state['left'] = round(min(TIMER_MAX, max(0, (float) $state['left'])), 3); // to the millisecond
     $state['ends_at'] = round((float) $state['ends_at'], 3);
     $state['faces'] = min(4, max(1, (int) $state['faces']));
+    $state['end_delay'] = min(TIMER_END_DELAY, max(0, (int) $state['end_delay']));
     $state['fg'] = timer_color($state['fg'], '#ffffff');
     $state['bg'] = timer_color($state['bg'], '#000000');
     $state['recent'] = array_slice(array_values(array_filter((array) $state['recent'], 'is_string')), 0, 5);
@@ -159,7 +162,7 @@ function reveal_url($face = '')
 function timer_screen_payload($state = null)
 {
     $data = array_intersect_key($state ?? timer_state(), array_flip([
-        'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
+        'status', 'left', 'ends_at', 'view', 'message', 'end_show', 'end_delay', 'look', 'fg', 'bg', 'faces', 'layout', 'reload',
     ]));
     return ['etag' => md5(json_encode($data))] + $data;
 }
