@@ -33,11 +33,16 @@
     el.innerHTML = '';
   }
 
-  // A face of the monolith is laid out in its own shape and stretched to fill the window (assets/css/screen.css)
+  // A face of the monolith is laid out in its own shape and stretched to fill the window (assets/css/screen.css).
+  // Worked out from the window and the face's shape, not from the laid out face, and again on every draw, so the
+  // face fills the window even if the browser never said it changed size.
+  var ratio = parseFloat(el.style.getPropertyValue('--ratio'));
   function stretch() {
-    if (!el.hasAttribute('data-face') || !el.offsetWidth || !el.offsetHeight) return;
-    el.style.setProperty('--sx', (window.innerWidth / el.offsetWidth).toFixed(4));
-    el.style.setProperty('--sy', (window.innerHeight / el.offsetHeight).toFixed(4));
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    if (!el.hasAttribute('data-face') || !(ratio > 0) || !w || !h) return;
+    el.style.setProperty('--sx', (w / Math.min(w, h * ratio)).toFixed(4));
+    el.style.setProperty('--sy', (h / Math.min(h, w / ratio)).toFixed(4));
   }
 
   // Draws the screen, then again the moment the next second or the reveal video is due (at least once a second).
@@ -46,6 +51,7 @@
   function draw() {
     clearTimeout(drawTimer);
     var t = clock.now();
+    stretch();
     document.body.style.background = data.bg;
     if ('reveal' in data) el.setAttribute('data-reveal', data.reveal); // a new video from the control room
     C.render(el, data, t);
@@ -129,10 +135,9 @@
     if (!current || current.done) restart();
   }
 
-  stretch();
   draw();
   poll();
-  window.addEventListener('resize', function () { stretch(); refit(); });
+  window.addEventListener('resize', refit);
   window.addEventListener('online', restart);
   document.addEventListener('visibilitychange', wake);
   document.addEventListener('resume', wake); // the browser froze the page in the background and let it go again
