@@ -152,7 +152,8 @@
     else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
   });
 
-  // Hide the mouse pointer when it isn't moving
+  // Hide the mouse pointer when it isn't moving, from the moment the screen opens
+  document.body.classList.add('is-idle');
   var idle = null;
   document.addEventListener('mousemove', function () {
     document.body.classList.remove('is-idle');
